@@ -20,6 +20,7 @@ class FacebookAPI:
         self.username = username
         self.password = password
         self.logged_in = False
+        self.login_url = 'https://www.facebook.com'
 
     def _sign_in(self):
         driver = self.driver
@@ -27,9 +28,9 @@ class FacebookAPI:
         # Search & Enter the Email or Phone field & Enter Password
         username = driver.find_element(By.ID,"email")
         password = driver.find_element(By.ID,"pass")
-        submit = driver.find_element(By.ID, "loginbutton")
+        submit = driver.find_element(By.NAME, "login")
 
-        time.sleep(3)
+        time.sleep(1)
         username.send_keys(self.username)
         password.send_keys(self.password)
         submit.click()
@@ -56,32 +57,27 @@ class FacebookAPI:
 
     def goto(self, url):
         print(url)
-        self.driver.get(url)
         if not self.logged_in:
+            self.driver.get(self.login_url)
             self._no_cookies()
             self._sign_in()
             self.logged_in = True
+            time.sleep(1)
+        self.driver.get(url)
 
-    def post_likes(self, post_url=None):
-        print('checking likes')
-        driver = self.driver
-        if post_url: self.goto(post_url)
+    def get_reacts(self, react_box):
         people = []
-        time.sleep(2)
-        driver.execute_script("window.scrollTo(0, 220)")
-        A = WebDriverWait(driver, 10).until(
-            lambda x: x.find_element(By.CSS_SELECTOR, "[aria-label='See who reacted to this']")
-                       .find_element(By.XPATH, '../div')) 
-        A.click()
-
-        react_box = WebDriverWait(driver, 10).until(lambda x: x.find_element(By.CSS_SELECTOR, "[aria-label='Reactions']")) 
+        driver = self.driver
         action = ActionChains(driver)
 
         yold, ynew = -1, 0
         i = 0
         while yold != ynew:
             print('scroll #{}'.format(i+1), end='\r')
-            scrollbar = WebDriverWait(driver, 2).until(lambda x: x.find_element(By.CLASS_NAME, 'jk6sbkaj'))
+            #breakpoint()
+            scrollbar = react_box.find_element(By.CLASS_NAME, 'jk6sbkaj')
+            self.highlight(scrollbar)
+            #scrollbar = WebDriverWait(driver, 2).until(lambda x: x.find_element(By.CLASS_NAME, 'jk6sbkaj'))
             yold = scrollbar.location['y']
             action.drag_and_drop_by_offset(scrollbar, 0, 100).perform()
             ynew = scrollbar.location['y']
@@ -98,12 +94,65 @@ class FacebookAPI:
         driver.find_element(By.CSS_SELECTOR, '[aria-label=Close]').click()
         return people
 
+    def post_likes(self, post_url=None):
+        print('checking likes')
+        driver = self.driver
+        if post_url: self.goto(post_url)
+        people = []
+        time.sleep(2)
+        driver.execute_script("window.scrollTo(0, 220)")
+        A = WebDriverWait(driver, 10).until(
+            lambda x: x.find_element(By.CSS_SELECTOR, "[aria-label='See who reacted to this']")
+                       .find_element(By.XPATH, '../div')) 
+        A.click()
+        react_box = WebDriverWait(driver, 10).until(lambda x: x.find_element(By.CSS_SELECTOR, "[aria-label='Reactions']")) 
+        return self.get_reacts(react_box)
+
+
+    def page_posts(self, url, num_posts=10):
+        driver = self.driver
+        self.goto(url)
+        feeds = WebDriverWait(driver, 5).until(lambda x: x.find_elements(By.CSS_SELECTOR, "[role='feed']"))
+        feed = feeds[-1]
+        SCROLL_PAUSE_TIME = 0.5
+
+        # Get scroll height
+        last_height = driver.execute_script("return document.body.scrollHeight")
+
+        posts = []
+        while len(posts) < num_posts:
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(SCROLL_PAUSE_TIME)
+            new_height = driver.execute_script("return document.body.scrollHeight")
+            if new_height == last_height:
+                break
+            last_height = new_height
+
+            posts = feed.find_elements(By.XPATH, './*')
+            print('Num posts loaded = {}'.format(len(posts)), end='\r')
+            
+        posts_reacts = {}
+        posts_read = 0
+        for post in posts:
+            if 'k4urcfbm' not in post.get_attribute('class'): continue
+            driver.execute_script("return arguments[0].scrollIntoView();", post)
+            time.sleep(0.5)
+            post.find_element(By.CSS_SELECTOR, "[aria-label='See who reacted to this']").find_element(By.XPATH, '../div').click()
+            react_box = WebDriverWait(driver, 3).until(lambda x: x.find_element(By.CSS_SELECTOR,"[aria-label='Reactions']"))
+            people = self.get_reacts(react_box)
+            posts_read += 1
+            posts_reacts[posts_read] = people
+            if posts_read == num_posts: break
+        return posts_reacts
+
+
     def close(self):
         self.driver.close()
 
 
 if __name__ == '__main__':
     url = 'https://www.facebook.com/timesofmalta/posts/pfbid0yE5ttL5xT3CWwiBnQc8k3gwUgBifqNEiHvFGUcAhdVDE35ZwThAA8M1QM3pD5U4yl'
+    page_url = 'https://www.facebook.com/levelupmalta'
 
     with open('credentials.yml') as f:
         credentials = yaml.safe_load(f)
@@ -111,6 +160,8 @@ if __name__ == '__main__':
     uname = credentials.get('username')
     pwd = credentials.get('password')
     api = FacebookAPI(username=uname, password=pwd)
+    people = api.page_posts(page_url)
+    print(people)
 
     posts = ['https://www.facebook.com/411387069323462/posts/415688255560010/',
              'https://www.facebook.com/411387069323462/posts/411394092656093/',
