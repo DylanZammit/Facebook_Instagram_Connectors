@@ -19,10 +19,10 @@ react_type = None
 for post in posts:
     page_post_id = post['id']
     post_id = page_post_id.split('_')[1]
-    print(f'Post ID = {post_id}')
-    data = api.get_object(page_post_id, fields='shares,created_time,message')
+    data = api.get_object(page_post_id, fields='shares,created_time,message,permalink_url')
     num_shares = data.get('shares', {'count': 0})['count']
     create_time = data['created_time']
+    permalink_url = data.get('permalink_url')
 
     react_count[post_id] = {'create_time': create_time, 'shares': num_shares}
     react_count[post_id].update(
@@ -30,6 +30,10 @@ for post in posts:
                              {'summary': 'total_count', 'type':react_type}
                             )['summary']['total_count'] for react_type in react_types})
     react_count[post_id]['message'] = data.get('message', '')
+    react_count[post_id]['url'] = permalink_url
+
+    print(f'Post ID = {page_post_id}')
+    print(f'URL = {permalink_url}')
 react_count = pd.DataFrame(react_count).T
 print(react_count)
-react_count.to_csv(f'{page_name}.csv')
+if 0: react_count.to_csv(f'{page_name}.csv')
