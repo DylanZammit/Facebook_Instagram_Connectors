@@ -1,7 +1,5 @@
 from pyfacebook import GraphAPI
 import pandas as pd
-from pprint import pprint
-from IPython import embed
 import yaml
 
 with open('tokens.yml') as f:
