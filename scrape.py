@@ -6,89 +6,117 @@ from selenium.webdriver.common.action_chains import ActionChains
 import time
 import yaml
 
-def highlight(driver, element):
-    """Highlights (blinks) a Selenium Webdriver element"""
-    driver = element._parent
-    def apply_style(s):
-     driver.execute_script("arguments[0].setAttribute('style', arguments[1]);",element, s)
-    original_style = element.get_attribute('style')
-    apply_style("background: yellow; border: 2px solid red;")
-    time.sleep(.3)
-    apply_style(original_style)
 
-url = 'https://www.facebook.com/timesofmalta/posts/pfbid0yE5ttL5xT3CWwiBnQc8k3gwUgBifqNEiHvFGUcAhdVDE35ZwThAA8M1QM3pD5U4yl'
+class FacebookAPI:
+    
+    def __init__(self, username, password, headless=False, maximise=True):
+        op = webdriver.ChromeOptions()
+        if headless: op.add_argument('headless')
+        op.add_experimental_option("prefs", { 
+            "profile.default_content_setting_values.notifications": 1 
+        })
+        self.driver = webdriver.Chrome(options=op)
+        if maximise: self.driver.maximize_window()
+        self.username = username
+        self.password = password
+        self.logged_in = False
 
-with open('credentials.yml') as f:
-    credentials = yaml.safe_load(f)
+    def _sign_in(self):
+        driver = self.driver
+        print('signing in')
+        # Search & Enter the Email or Phone field & Enter Password
+        username = driver.find_element(By.ID,"email")
+        password = driver.find_element(By.ID,"pass")
+        submit = driver.find_element(By.ID, "loginbutton")
 
-uname = credentials.get('username')
-pwd = credentials.get('password')
+        time.sleep(3)
+        username.send_keys(self.username)
+        password.send_keys(self.password)
+        submit.click()
 
-def sign_in(driver):
-    print('signing in')
-    # Search & Enter the Email or Phone field & Enter Password
-    username = driver.find_element(By.ID,"email")
-    password = driver.find_element(By.ID,"pass")
-    submit = driver.find_element(By.ID, "loginbutton")
+    def _no_cookies(self):
+        print('removing cookies popup')
+        try:
+            A = WebDriverWait(self.driver, 3).until(
+                lambda x: x.find_element(By.XPATH,"//button[@data-cookiebanner='accept_only_essential_button']"))
+        except Exception as e:
+            print(e)
+        else:
+            A.click()
 
-    time.sleep(3)
-    username.send_keys(uname)
-    password.send_keys(pwd)
-    submit.click()
+    def highlight(self, element):
+        """Highlights (blinks) a Selenium Webdriver element"""
+        driver = element._parent
+        def apply_style(s):
+            driver.execute_script("arguments[0].setAttribute('style', arguments[1]);",element, s)
+        original_style = element.get_attribute('style')
+        apply_style("background: yellow; border: 2px solid red;")
+        time.sleep(.3)
+        apply_style(original_style)
 
-def who_liked(driver):
-    print('checking likes')
-    people = []
-    A = WebDriverWait(driver, 10).until(lambda x: x.find_element(By.CSS_SELECTOR, "[aria-label='See who reacted to this']")) 
+    def goto(self, url):
+        print(url)
+        self.driver.get(url)
+        if not self.logged_in:
+            self._no_cookies()
+            self._sign_in()
+            self.logged_in = True
 
-    A.find_element(By.XPATH, '../div').click()
+    def post_likes(self, post_url=None):
+        print('checking likes')
+        driver = self.driver
+        if post_url: self.goto(post_url)
+        people = []
+        time.sleep(2)
+        driver.execute_script("window.scrollTo(0, 220)")
+        A = WebDriverWait(driver, 10).until(
+            lambda x: x.find_element(By.CSS_SELECTOR, "[aria-label='See who reacted to this']")
+                       .find_element(By.XPATH, '../div')) 
+        A.click()
 
-    react_box = WebDriverWait(driver, 10).until(lambda x: x.find_element(By.CSS_SELECTOR, "[aria-label='Reactions']")) 
-    action = ActionChains(driver)
+        react_box = WebDriverWait(driver, 10).until(lambda x: x.find_element(By.CSS_SELECTOR, "[aria-label='Reactions']")) 
+        action = ActionChains(driver)
 
-    yold, ynew = -1, 0
-    i = 0
-    while yold != ynew:
-        print('scroll #{}'.format(i+1), end='\r')
-        scrollbar = WebDriverWait(driver, 2).until(lambda x: x.find_element(By.CLASS_NAME, 'jk6sbkaj'))
-        yold = scrollbar.location['y']
-        action.drag_and_drop_by_offset(scrollbar, 0, 100).perform()
-        ynew = scrollbar.location['y']
-        time.sleep(0.5)
-        i += 1
+        yold, ynew = -1, 0
+        i = 0
+        while yold != ynew:
+            print('scroll #{}'.format(i+1), end='\r')
+            scrollbar = WebDriverWait(driver, 2).until(lambda x: x.find_element(By.CLASS_NAME, 'jk6sbkaj'))
+            yold = scrollbar.location['y']
+            action.drag_and_drop_by_offset(scrollbar, 0, 100).perform()
+            ynew = scrollbar.location['y']
+            time.sleep(0.5)
+            i += 1
 
-    react_box = WebDriverWait(driver, 10).until(lambda x: x.find_element(By.CSS_SELECTOR, "[aria-label='Reactions']")) 
-    links = react_box.find_elements(By.TAG_NAME, 'a')
-    for i in range(1, len(links), 2):
-        link = links[i]
-        people.append(link.text)
+        # needed?
+        react_box = WebDriverWait(driver, 10).until(lambda x: x.find_element(By.CSS_SELECTOR, "[aria-label='Reactions']")) 
+        links = react_box.find_elements(By.TAG_NAME, 'a')
+        for i in range(1, len(links), 2):
+            link = links[i]
+            people.append(link.text)
 
-    driver.find_element(By.CSS_SELECTOR, '[aria-label=Close]').click()
-    return people
+        driver.find_element(By.CSS_SELECTOR, '[aria-label=Close]').click()
+        return people
 
-def no_cookies(driver):
-    print('removing cookies popup')
-    time.sleep(1)
-    driver.find_element(By.XPATH,"//button[@data-cookiebanner='accept_only_essential_button']").click()
+    def close(self):
+        self.driver.close()
 
-react_class = 'gjzvkazv'
-react_box_class = 'k7i0oixp'
 
-op = webdriver.ChromeOptions()
-# don't open browser
-# op.add_argument('headless')
-op.add_experimental_option("prefs", { 
-    "profile.default_content_setting_values.notifications": 1 
-})
+if __name__ == '__main__':
+    url = 'https://www.facebook.com/timesofmalta/posts/pfbid0yE5ttL5xT3CWwiBnQc8k3gwUgBifqNEiHvFGUcAhdVDE35ZwThAA8M1QM3pD5U4yl'
 
-with webdriver.Chrome(options=op) as driver:
-    driver.maximize_window()
+    with open('credentials.yml') as f:
+        credentials = yaml.safe_load(f)
 
-    driver.get(url)
-    no_cookies(driver)
-    sign_in(driver)
-    people = who_liked(driver)
-    print(people)
-    print(f'Num ppl: {len(people)}')
+    uname = credentials.get('username')
+    pwd = credentials.get('password')
+    api = FacebookAPI(username=uname, password=pwd)
 
-    breakpoint()
+    posts = ['https://www.facebook.com/411387069323462/posts/415688255560010/',
+             'https://www.facebook.com/411387069323462/posts/411394092656093/',
+             'https://www.facebook.com/411387069323462/posts/411401305988705/']
+
+    likers = {url: api.post_likes(url) for url in posts}
+    api.close()
+
+    print(likers)
