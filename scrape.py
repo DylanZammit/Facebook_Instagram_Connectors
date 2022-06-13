@@ -5,6 +5,9 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 import time
 import yaml
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 
 
 class FacebookAPI:
@@ -109,7 +112,8 @@ class FacebookAPI:
         return self.get_reacts(react_box)
 
 
-    def page_posts(self, url, num_posts=10):
+    def page_posts(self, url, num_posts=None):
+        if not num_posts: num_posts = np.inf
         driver = self.driver
         self.goto(url)
         feeds = WebDriverWait(driver, 5).until(lambda x: x.find_elements(By.CSS_SELECTOR, "[role='feed']"))
@@ -160,14 +164,41 @@ if __name__ == '__main__':
     uname = credentials.get('username')
     pwd = credentials.get('password')
     api = FacebookAPI(username=uname, password=pwd)
+
     people = api.page_posts(page_url)
     print(people)
 
-    posts = ['https://www.facebook.com/411387069323462/posts/415688255560010/',
-             'https://www.facebook.com/411387069323462/posts/411394092656093/',
-             'https://www.facebook.com/411387069323462/posts/411401305988705/']
+    freqs = {}
+    rpp = {}
+    for post_num, post_reacts in people.items():
+        print(post_num)
+        for person in post_reacts:
+            if person not in freqs:
+                freqs[person] = 1
+            else:
+                freqs[person] +=1
+        rpp[post_num] = len(post_reacts)
 
-    likers = {url: api.post_likes(url) for url in posts}
-    api.close()
+    rpp = pd.Series(rpp)
+    freqs = pd.Series(freqs).sort_values(ascending=False)
 
-    print(likers)
+    plt.plot(rpp)
+    plt.xlabel('Post number')
+    plt.ylabel('Num of reacts')
+    plt.title('Reacts per post for LevelUp')
+
+    plt.figure()
+
+    ax = freqs.iloc[:10].plot.bar(rot = 45)
+    ax.set_title('Top 10 post reactors')
+    plt.show()
+
+    if 0:
+        posts = ['https://www.facebook.com/411387069323462/posts/415688255560010/',
+                 'https://www.facebook.com/411387069323462/posts/411394092656093/',
+                 'https://www.facebook.com/411387069323462/posts/411401305988705/']
+
+        likers = {url: api.post_likes(url) for url in posts}
+        api.close()
+
+        print(likers)
