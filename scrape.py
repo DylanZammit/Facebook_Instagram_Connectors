@@ -17,7 +17,8 @@ class FacebookAPI:
         op = webdriver.ChromeOptions()
         if headless: op.add_argument('headless')
         op.add_experimental_option("prefs", { 
-            "profile.default_content_setting_values.notifications": 1 
+            "profile.default_content_setting_values.notifications": 1,
+            "profile.managed_default_content_settings.images": 2
         })
         self.driver = webdriver.Chrome(options=op)
         if maximise: self.driver.maximize_window()
@@ -170,7 +171,8 @@ if __name__ == '__main__':
 
     uname = credentials.get('username')
     pwd = credentials.get('password')
-    api = FacebookAPI(username=uname, password=pwd)
+    headless = False
+    api = FacebookAPI(username=uname, password=pwd, headless=headless)
 
     people = api.page_posts(page_url)
     print(people)
