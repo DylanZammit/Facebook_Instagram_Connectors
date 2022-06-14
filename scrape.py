@@ -3,6 +3,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
+import gender_guesser.detector as gender
 import time
 import yaml
 import numpy as np
@@ -79,6 +80,7 @@ class FacebookAPI:
             print('scroll #{}'.format(i+1), end='\r')
             #breakpoint()
             scrollbar = react_box.find_element(By.CLASS_NAME, 'jk6sbkaj')
+            if int(scrollbar.value_of_css_property('height')[0]) == 0: break
             self.highlight(scrollbar)
             #scrollbar = WebDriverWait(driver, 2).until(lambda x: x.find_element(By.CLASS_NAME, 'jk6sbkaj'))
             yold = scrollbar.location['y']
@@ -87,14 +89,12 @@ class FacebookAPI:
             time.sleep(0.5)
             i += 1
 
-        # needed?
-        react_box = WebDriverWait(driver, 10).until(lambda x: x.find_element(By.CSS_SELECTOR, "[aria-label='Reactions']")) 
         links = react_box.find_elements(By.TAG_NAME, 'a')
         for i in range(1, len(links), 2):
             link = links[i]
             people.append(link.text)
 
-        driver.find_element(By.CSS_SELECTOR, '[aria-label=Close]').click()
+        react_box.find_element(By.CSS_SELECTOR, '[aria-label=Close]').click()
         return people
 
     def post_likes(self, post_url=None):
@@ -108,7 +108,7 @@ class FacebookAPI:
             lambda x: x.find_element(By.CSS_SELECTOR, "[aria-label='See who reacted to this']")
                        .find_element(By.XPATH, '../div')) 
         A.click()
-        react_box = WebDriverWait(driver, 10).until(lambda x: x.find_element(By.CSS_SELECTOR, "[aria-label='Reactions']")) 
+        react_box = WebDriverWait(driver, 10).until(lambda x: x.find_element(By.CSS_SELECTOR, "[aria-label='Reactions']"))
         return self.get_reacts(react_box)
 
 
@@ -138,15 +138,20 @@ class FacebookAPI:
         posts_reacts = {}
         posts_read = 0
         for post in posts:
-            if 'k4urcfbm' not in post.get_attribute('class'): continue
-            driver.execute_script("return arguments[0].scrollIntoView();", post)
-            time.sleep(0.5)
-            post.find_element(By.CSS_SELECTOR, "[aria-label='See who reacted to this']").find_element(By.XPATH, '../div').click()
-            react_box = WebDriverWait(driver, 3).until(lambda x: x.find_element(By.CSS_SELECTOR,"[aria-label='Reactions']"))
-            people = self.get_reacts(react_box)
-            posts_read += 1
-            posts_reacts[posts_read] = people
-            if posts_read == num_posts: break
+            try:
+                if 'k4urcfbm' not in post.get_attribute('class'): continue
+                driver.execute_script("return arguments[0].scrollIntoView();", post)
+                time.sleep(1)
+                react_clicker = post.find_element(By.CSS_SELECTOR, "[aria-label='See who reacted to this']").find_element(By.XPATH, '../div')
+                react_clicker.click()
+                react_box = WebDriverWait(driver, 3).until(lambda x: x.find_element(By.CSS_SELECTOR,"[aria-label='Reactions']"))
+                people = self.get_reacts(react_box)
+                posts_read += 1
+                posts_reacts[posts_read] = people
+                if posts_read == num_posts: break
+            except Exception as e:
+                print(post, e)
+                continue
         return posts_reacts
 
 
@@ -158,6 +163,8 @@ if __name__ == '__main__':
     url = 'https://www.facebook.com/timesofmalta/posts/pfbid0yE5ttL5xT3CWwiBnQc8k3gwUgBifqNEiHvFGUcAhdVDE35ZwThAA8M1QM3pD5U4yl'
     page_url = 'https://www.facebook.com/levelupmalta'
 
+    #page_url = 'https://www.facebook.com/MathsTuitionMalta'
+
     with open('credentials.yml') as f:
         credentials = yaml.safe_load(f)
 
@@ -168,19 +175,41 @@ if __name__ == '__main__':
     people = api.page_posts(page_url)
     print(people)
 
+    d = gender.Detector(case_sensitive=False)
+
     freqs = {}
     rpp = {}
+    genders = {}
     for post_num, post_reacts in people.items():
         print(post_num)
         for person in post_reacts:
+            genders[post_num] = {'male': 0, 'female': 0}
             if person not in freqs:
                 freqs[person] = 1
             else:
                 freqs[person] +=1
+
+            first_name = person.split(' ')[0]
+            gender = d.get_gender(first_name)
+            if 'female' in gender:
+                genders[post_num]['female'] += 1
+            elif 'male' in gender:
+                genders[post_num]['male'] += 1
+            else:
+                genders[post_num]['male'] += 0.5
+                genders[post_num]['female'] += 0.5
+
         rpp[post_num] = len(post_reacts)
 
     rpp = pd.Series(rpp)
     freqs = pd.Series(freqs).sort_values(ascending=False)
+
+    df_genders = pd.DataFrame(genders).T
+    df_genders.T.plot.pie(subplots=True)
+    plt.figure()
+    df_genders.sum().plot.pie()
+
+    plt.figure()
 
     plt.plot(rpp)
     plt.xlabel('Post number')
