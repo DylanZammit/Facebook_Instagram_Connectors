@@ -1,6 +1,7 @@
 from seleniumwire import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
@@ -64,7 +65,7 @@ class FacebookAPI:
             options=op, 
             seleniumwire_options=selop, 
             desired_capabilities=capabilities)
-        self.driver.implicitly_wait(10)
+        self.driver.implicitly_wait(5)
 
         if maximise: self.driver.maximize_window()
         self.username = username
@@ -73,6 +74,7 @@ class FacebookAPI:
         self.login_url = 'https://www.facebook.com'
         self.cookie_handler = CookieHandler(cookie_fn)
         self.cookies = self.cookie_handler.load_all()
+        self.SCROLL_PAUSE_TIME = 0.5
 
 
     def _sign_in(self):
@@ -131,31 +133,42 @@ class FacebookAPI:
 
         yold, ynew = -1, 0
         i = 0
-        while yold != ynew:
+        #embed()
+        prev_link = -1
+        while True:
             print('scroll #{}'.format(i+1), end='\r')
-            scrollbar = react_box.find_element(By.CLASS_NAME, 'jk6sbkaj')
-            if int(scrollbar.value_of_css_property('height')[0]) == 0: break
-            self.highlight(scrollbar)
-            yold = scrollbar.location['y']
-            action.drag_and_drop_by_offset(scrollbar, 0, 100).perform()
-            ynew = scrollbar.location['y']
-            time.sleep(0.5)
+            last_link = react_box.find_elements(By.TAG_NAME, 'a')[-1]
+            if last_link == prev_link: break
+            prev_link = last_link
+            driver.execute_script('arguments[0].scrollIntoView()', last_link)
+            time.sleep(self.SCROLL_PAUSE_TIME)
             i += 1
-            A = driver.wait_for_request('graphql', timeout=10)
-            if 0:
-                time.sleep(3)
-                graph_requests = []
-                for request in self.driver.requests:
-                    print(request.url)
-                    if 'graphql' in str(request.url):
-                        graph_requests.append(request)
-                        X = json.loads(request.response.body.decode())
-                        try:
-                            Z = X['data']['node']['reactors']
-                            embed()
-                        except:
-                            pass
-                breakpoint()
+
+        #while yold != ynew:
+        #    print('scroll #{}'.format(i+1), end='\r')
+        #    scrollbar = react_box.find_element(By.CLASS_NAME, 'jk6sbkaj')
+        #    if int(scrollbar.value_of_css_property('height')[0]) == 0: break
+        #    self.highlight(scrollbar)
+        #    yold = scrollbar.location['y']
+        #    action.drag_and_drop_by_offset(scrollbar, 0, 100).perform()
+        #    ynew = scrollbar.location['y']
+        #    time.sleep(self.SCROLL_PAUSE_TIME)
+        #    i += 1
+        #    if 0:
+        #        A = driver.wait_for_request('graphql', timeout=10)
+        #        time.sleep(3)
+        #        graph_requests = []
+        #        for request in self.driver.requests:
+        #            print(request.url)
+        #            if 'graphql' in str(request.url):
+        #                graph_requests.append(request)
+        #                X = json.loads(request.response.body.decode())
+        #                try:
+        #                    Z = X['data']['node']['reactors']
+        #                    embed()
+        #                except:
+        #                    pass
+        #        breakpoint()
 
         links = react_box.find_elements(By.TAG_NAME, 'a')
         for i in range(1, len(links), 2):
@@ -183,43 +196,47 @@ class FacebookAPI:
         if not num_posts: num_posts = np.inf
         driver = self.driver
         self.goto(url)
-        feeds = driver.find_elements(By.CSS_SELECTOR, "[role='feed']")
-        feed = feeds[-1]
-        SCROLL_PAUSE_TIME = 0.5
-
+        main_feed = driver.find_elements(By.CSS_SELECTOR, "[role='main']")[-1]
+        main_feed = main_feed.find_element(By.CLASS_NAME, "k4urcfbm")
+        try:
+            main_feed = driver.find_elements(By.CSS_SELECTOR, "[role='feed']")[-1]
+        except Exception as e:
+            pass
+        
         # Get scroll height
         last_height = driver.execute_script("return document.body.scrollHeight")
 
         posts = []
-        time.sleep(SCROLL_PAUSE_TIME)
+        time.sleep(self.SCROLL_PAUSE_TIME)
         while len(posts) < num_posts:
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
             new_height = driver.execute_script("return document.body.scrollHeight")
-            if new_height == last_height and len(posts) > 0:
-                break
+            if new_height == last_height and len(posts) > 0: break
             last_height = new_height
-
-            time.sleep(SCROLL_PAUSE_TIME*2)
-            posts = feed.find_elements(By.XPATH, './*')
-            print('Num posts loaded = {}'.format(len(posts)))
+            time.sleep(self.SCROLL_PAUSE_TIME*2)
+            posts = main_feed.find_elements(By.XPATH, "./div[contains(@class, 'k4urcfbm')]")
+            print('Num posts loaded = {}'.format(len(posts)), end='\r')
+        print()
 
         posts_reacts = {}
         posts_read = 0
-        for post in posts:
-            try:
-                if 'k4urcfbm' not in post.get_attribute('class'): continue
+        for i, post in enumerate(posts):
+            while True:
                 driver.execute_script("return arguments[0].scrollIntoView();", post)
-                time.sleep(1)
+                time.sleep(self.SCROLL_PAUSE_TIME)
                 react_clicker = post.find_element(By.CSS_SELECTOR, "[aria-label='See who reacted to this']").find_element(By.XPATH, '../div')
                 react_clicker.click()
                 react_box = driver.find_element(By.CSS_SELECTOR,"[aria-label='Reactions']")
+                #num_likes = int(react_box.find_element(By.XPATH, ".//div[@role='tab']/div/span/span").text)
+                self.highlight(react_box)
                 people = self.get_reacts(react_box)
                 posts_read += 1
                 posts_reacts[posts_read] = people
-                if posts_read == num_posts: break
-            except Exception as e:
-                print(post, e)
-                continue
+                num_likes_specific = len(people)
+                print(f'Post #{i+1} likes = {num_likes_specific}')
+                break
+                if num_likes == num_likes_specific: break
+            if posts_read == num_posts: break
         return posts_reacts
 
 
@@ -230,9 +247,10 @@ class FacebookAPI:
 
 if __name__ == '__main__':
     url = 'https://www.facebook.com/timesofmalta/posts/pfbid0yE5ttL5xT3CWwiBnQc8k3gwUgBifqNEiHvFGUcAhdVDE35ZwThAA8M1QM3pD5U4yl'
-    page_url = 'https://www.facebook.com/levelupmalta'
 
+    page_url = 'https://www.facebook.com/levelupmalta'
     #page_url = 'https://www.facebook.com/MathsTuitionMalta'
+    page_url = 'https://www.facebook.com/timesofmalta'
 
     with open('credentials.yml') as f:
         credentials = yaml.safe_load(f)
@@ -242,7 +260,7 @@ if __name__ == '__main__':
     headless = False
     api = FacebookAPI(username=uname, password=pwd, headless=headless)
 
-    people = api.page_posts(page_url)
+    people = api.page_posts(page_url, 20)
     print(people)
 
     d = gender.Detector(case_sensitive=False)
