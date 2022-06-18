@@ -1,34 +1,84 @@
-from selenium import webdriver
+from seleniumwire import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+import json
 import gender_guesser.detector as gender
 import time
 import yaml
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from IPython import embed
+import os
+
+
+class CookieHandler:
+
+    def __init__(self, fn):
+        self.fn = fn
+
+    def save_cookies(self, cookies):
+        data = json.dumps(cookies)
+        with open(self.fn, 'w', encoding='utf-8') as f:
+            f.write(data)
+
+    def load_cookie(self, cookie):
+        cookies = self.load_all()
+        generator = (cookie for cookie in data if cookie['name'] == cookie)
+        return next(generator, -1)
+
+    def load_all(self):
+        with open(self.fn, 'r') as f:
+            cookies = json.load(f)
+        return cookies
+
+    def delete_cookie(self, cookie):
+        raise NotImplementedError
+
+    def delete_all(self):
+        raise NotImplementedError
 
 
 class FacebookAPI:
     
-    def __init__(self, username, password, headless=False, maximise=True):
+    def __init__(self, username, password,
+                 headless=False, maximise=True,
+                 cookie_fn='fb_cookie.json'):
+
         op = webdriver.ChromeOptions()
         if headless: op.add_argument('headless')
+        capabilities = DesiredCapabilities.CHROME
+        capabilities["goog:loggingPrefs"] = {"performance": "ALL"}
+
         op.add_experimental_option("prefs", { 
             "profile.default_content_setting_values.notifications": 1,
             "profile.managed_default_content_settings.images": 2
         })
-        self.driver = webdriver.Chrome(options=op)
+        selop = {
+            'disable_encoding': True  # Don't intercept/store any requests.
+        }
+        self.driver = webdriver.Chrome(
+            options=op, 
+            seleniumwire_options=selop, 
+            desired_capabilities=capabilities)
+        self.driver.implicitly_wait(10)
+
         if maximise: self.driver.maximize_window()
         self.username = username
         self.password = password
         self.logged_in = False
         self.login_url = 'https://www.facebook.com'
+        self.cookie_handler = CookieHandler(cookie_fn)
+        self.cookies = self.cookie_handler.load_all()
+
 
     def _sign_in(self):
+        if self.logged_in: return
         driver = self.driver
+
         print('signing in')
         # Search & Enter the Email or Phone field & Enter Password
         username = driver.find_element(By.ID,"email")
@@ -43,12 +93,11 @@ class FacebookAPI:
     def _no_cookies(self):
         print('removing cookies popup')
         try:
-            A = WebDriverWait(self.driver, 3).until(
-                lambda x: x.find_element(By.XPATH,"//button[@data-cookiebanner='accept_only_essential_button']"))
+            no_cookie_button = self.driver.find_element(By.XPATH,"//button[@data-cookiebanner='accept_only_essential_button']")
         except Exception as e:
             print(e)
         else:
-            A.click()
+            no_cookie_button.click()
 
     def highlight(self, element):
         """Highlights (blinks) a Selenium Webdriver element"""
@@ -61,6 +110,11 @@ class FacebookAPI:
         apply_style(original_style)
 
     def goto(self, url):
+        self.driver.get(self.login_url)
+        for cookie in self.cookies:
+            if cookie['name'] == 'presence': self.logged_in = True
+            self.driver.add_cookie(cookie)
+
         print(url)
         if not self.logged_in:
             self.driver.get(self.login_url)
@@ -79,16 +133,29 @@ class FacebookAPI:
         i = 0
         while yold != ynew:
             print('scroll #{}'.format(i+1), end='\r')
-            #breakpoint()
             scrollbar = react_box.find_element(By.CLASS_NAME, 'jk6sbkaj')
             if int(scrollbar.value_of_css_property('height')[0]) == 0: break
             self.highlight(scrollbar)
-            #scrollbar = WebDriverWait(driver, 2).until(lambda x: x.find_element(By.CLASS_NAME, 'jk6sbkaj'))
             yold = scrollbar.location['y']
             action.drag_and_drop_by_offset(scrollbar, 0, 100).perform()
             ynew = scrollbar.location['y']
             time.sleep(0.5)
             i += 1
+            A = driver.wait_for_request('graphql', timeout=10)
+            if 0:
+                time.sleep(3)
+                graph_requests = []
+                for request in self.driver.requests:
+                    print(request.url)
+                    if 'graphql' in str(request.url):
+                        graph_requests.append(request)
+                        X = json.loads(request.response.body.decode())
+                        try:
+                            Z = X['data']['node']['reactors']
+                            embed()
+                        except:
+                            pass
+                breakpoint()
 
         links = react_box.find_elements(By.TAG_NAME, 'a')
         for i in range(1, len(links), 2):
@@ -103,13 +170,12 @@ class FacebookAPI:
         driver = self.driver
         if post_url: self.goto(post_url)
         people = []
-        time.sleep(2)
         driver.execute_script("window.scrollTo(0, 220)")
-        A = WebDriverWait(driver, 10).until(
-            lambda x: x.find_element(By.CSS_SELECTOR, "[aria-label='See who reacted to this']")
-                       .find_element(By.XPATH, '../div')) 
-        A.click()
-        react_box = WebDriverWait(driver, 10).until(lambda x: x.find_element(By.CSS_SELECTOR, "[aria-label='Reactions']"))
+        A = driver.find_element(By.CSS_SELECTOR, 
+            "[aria-label='See who reacted to this']")
+        A.find_element(By.XPATH, '../div').click()
+
+        react_box = driver.find_element(By.CSS_SELECTOR, "[aria-label='Reactions']")
         return self.get_reacts(react_box)
 
 
@@ -117,7 +183,7 @@ class FacebookAPI:
         if not num_posts: num_posts = np.inf
         driver = self.driver
         self.goto(url)
-        feeds = WebDriverWait(driver, 5).until(lambda x: x.find_elements(By.CSS_SELECTOR, "[role='feed']"))
+        feeds = driver.find_elements(By.CSS_SELECTOR, "[role='feed']")
         feed = feeds[-1]
         SCROLL_PAUSE_TIME = 0.5
 
@@ -125,17 +191,18 @@ class FacebookAPI:
         last_height = driver.execute_script("return document.body.scrollHeight")
 
         posts = []
+        time.sleep(SCROLL_PAUSE_TIME)
         while len(posts) < num_posts:
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(SCROLL_PAUSE_TIME)
             new_height = driver.execute_script("return document.body.scrollHeight")
-            if new_height == last_height:
+            if new_height == last_height and len(posts) > 0:
                 break
             last_height = new_height
 
+            time.sleep(SCROLL_PAUSE_TIME*2)
             posts = feed.find_elements(By.XPATH, './*')
-            print('Num posts loaded = {}'.format(len(posts)), end='\r')
-            
+            print('Num posts loaded = {}'.format(len(posts)))
+
         posts_reacts = {}
         posts_read = 0
         for post in posts:
@@ -145,7 +212,7 @@ class FacebookAPI:
                 time.sleep(1)
                 react_clicker = post.find_element(By.CSS_SELECTOR, "[aria-label='See who reacted to this']").find_element(By.XPATH, '../div')
                 react_clicker.click()
-                react_box = WebDriverWait(driver, 3).until(lambda x: x.find_element(By.CSS_SELECTOR,"[aria-label='Reactions']"))
+                react_box = driver.find_element(By.CSS_SELECTOR,"[aria-label='Reactions']")
                 people = self.get_reacts(react_box)
                 posts_read += 1
                 posts_reacts[posts_read] = people
@@ -157,6 +224,7 @@ class FacebookAPI:
 
 
     def close(self):
+        self.cookie_handler.save_all(self.driver.get_cookies())
         self.driver.close()
 
 
