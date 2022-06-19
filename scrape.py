@@ -47,7 +47,7 @@ class FacebookAPI:
     
     def __init__(self, username, password,
                  headless=False, maximise=True,
-                 cookie_fn='fb_cookie.json'):
+                 cookie_fn='fb_cookie.json', implicit_wait=5):
 
         op = webdriver.ChromeOptions()
         if headless: op.add_argument('headless')
@@ -65,7 +65,8 @@ class FacebookAPI:
             options=op, 
             seleniumwire_options=selop, 
             desired_capabilities=capabilities)
-        self.driver.implicitly_wait(5)
+        self.IMPLICIT_WAIT = implicit_wait
+        self.driver.implicitly_wait(self.IMPLICIT_WAIT)
 
         if maximise: self.driver.maximize_window()
         self.username = username
@@ -129,46 +130,36 @@ class FacebookAPI:
     def get_reacts(self, react_box):
         people = []
         driver = self.driver
-        action = ActionChains(driver)
-
-        yold, ynew = -1, 0
-        i = 0
-        #embed()
         prev_link = -1
+        i = 0
+        driver.implicitly_wait(0)
         while True:
-            print('scroll #{}'.format(i+1), end='\r')
-            last_link = react_box.find_elements(By.TAG_NAME, 'a')[-1]
-            if last_link == prev_link: break
-            prev_link = last_link
-            driver.execute_script('arguments[0].scrollIntoView()', last_link)
-            time.sleep(self.SCROLL_PAUSE_TIME)
-            i += 1
+            try:
+                X = react_box.find_element(By.CSS_SELECTOR, "[role='progressbar']")
+            except Exception as e:
+                break
 
-        #while yold != ynew:
-        #    print('scroll #{}'.format(i+1), end='\r')
-        #    scrollbar = react_box.find_element(By.CLASS_NAME, 'jk6sbkaj')
-        #    if int(scrollbar.value_of_css_property('height')[0]) == 0: break
-        #    self.highlight(scrollbar)
-        #    yold = scrollbar.location['y']
-        #    action.drag_and_drop_by_offset(scrollbar, 0, 100).perform()
-        #    ynew = scrollbar.location['y']
-        #    time.sleep(self.SCROLL_PAUSE_TIME)
-        #    i += 1
-        #    if 0:
-        #        A = driver.wait_for_request('graphql', timeout=10)
-        #        time.sleep(3)
-        #        graph_requests = []
-        #        for request in self.driver.requests:
-        #            print(request.url)
-        #            if 'graphql' in str(request.url):
-        #                graph_requests.append(request)
-        #                X = json.loads(request.response.body.decode())
-        #                try:
-        #                    Z = X['data']['node']['reactors']
-        #                    embed()
-        #                except:
-        #                    pass
-        #        breakpoint()
+            last_link = react_box.find_elements(By.TAG_NAME, 'a')[-1]
+            if prev_link != last_link:
+                print('scroll #{}'.format(i+1), end='\r')
+                driver.execute_script('arguments[0].scrollIntoView()', last_link)
+                i += 1
+            prev_link = last_link
+        driver.implicitly_wait(self.IMPLICIT_WAIT)
+
+        #  A = driver.wait_for_request('graphql', timeout=10)
+        #  time.sleep(3)
+        #  graph_requests = []
+        #  for request in self.driver.requests:
+        #      print(request.url)
+        #      if 'graphql' in str(request.url):
+        #          graph_requests.append(request)
+        #          X = json.loads(request.response.body.decode())
+        #          try:
+        #              Z = X['data']['node']['reactors']
+        #          except:
+        #              pass
+        #  breakpoint()
 
         links = react_box.find_elements(By.TAG_NAME, 'a')
         for i in range(1, len(links), 2):
@@ -224,24 +215,29 @@ class FacebookAPI:
             while True:
                 driver.execute_script("return arguments[0].scrollIntoView();", post)
                 time.sleep(self.SCROLL_PAUSE_TIME)
-                react_clicker = post.find_element(By.CSS_SELECTOR, "[aria-label='See who reacted to this']").find_element(By.XPATH, '../div')
+                try:
+                    react_clicker = post.find_element(By.CSS_SELECTOR, "[aria-label='See who reacted to this']").find_element(By.XPATH, '../div')
+                except NoSuchElementException as e:
+                    break
                 react_clicker.click()
                 react_box = driver.find_element(By.CSS_SELECTOR,"[aria-label='Reactions']")
                 #num_likes = int(react_box.find_element(By.XPATH, ".//div[@role='tab']/div/span/span").text)
-                self.highlight(react_box)
+                #self.highlight(react_box)
                 people = self.get_reacts(react_box)
                 posts_read += 1
                 posts_reacts[posts_read] = people
                 num_likes_specific = len(people)
                 print(f'Post #{i+1} likes = {num_likes_specific}')
                 break
+                # if total reacts not same as observed, retry
                 if num_likes == num_likes_specific: break
             if posts_read == num_posts: break
         return posts_reacts
 
 
     def close(self):
-        self.cookie_handler.save_all(self.driver.get_cookies())
+        self.cookie_handler.save_cookies(self.driver.get_cookies())
+        print('goodbye')
         self.driver.close()
 
 
@@ -295,7 +291,7 @@ if __name__ == '__main__':
     df_genders = pd.DataFrame(genders).T
     df_genders.T.plot.pie(subplots=True)
     plt.figure()
-    df_genders.sum().plot.pie()
+    df_genders.sum().plot.pie(autopct='%1.1f%%')
 
     plt.figure()
 
@@ -316,6 +312,7 @@ if __name__ == '__main__':
                  'https://www.facebook.com/411387069323462/posts/411401305988705/']
 
         likers = {url: api.post_likes(url) for url in posts}
-        api.close()
 
         print(likers)
+
+    api.close()
