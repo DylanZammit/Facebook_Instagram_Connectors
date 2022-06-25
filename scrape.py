@@ -127,7 +127,21 @@ class FacebookAPI:
             time.sleep(1)
         self.driver.get(url)
 
+    def _get_graphql(self, requests):
+        out = []
+        for request in self.driver.requests:
+            if 'graphql' in str(request.url):
+                try:
+                    out.append(json.loads(request.response.body.decode()))
+                except:
+                    continue
+        #  A = driver.wait_for_request('graphql', timeout=10)
+        #              Z = X['data']['node']['reactors']
+        return out
+
+
     def get_reacts(self, react_box):
+        #people = {'id': [], 'name': []}
         people = []
         driver = self.driver
         prev_link = -1
@@ -141,25 +155,18 @@ class FacebookAPI:
 
             last_link = react_box.find_elements(By.TAG_NAME, 'a')[-1]
             if prev_link != last_link:
+                if 0:
+                    graphql = self._get_graphql(self.driver.requests)[-1]
+                    for reactor in graphql['data']['node']['reactors']['edges']:
+                        people.append(reactor['node']['name'])
+
                 print('scroll #{}'.format(i+1), end='\r')
+                del driver.requests
                 driver.execute_script('arguments[0].scrollIntoView()', last_link)
+                #A = driver.wait_for_request('graphql', timeout=20)
                 i += 1
             prev_link = last_link
         driver.implicitly_wait(self.IMPLICIT_WAIT)
-
-        #  A = driver.wait_for_request('graphql', timeout=10)
-        #  time.sleep(3)
-        #  graph_requests = []
-        #  for request in self.driver.requests:
-        #      print(request.url)
-        #      if 'graphql' in str(request.url):
-        #          graph_requests.append(request)
-        #          X = json.loads(request.response.body.decode())
-        #          try:
-        #              Z = X['data']['node']['reactors']
-        #          except:
-        #              pass
-        #  breakpoint()
 
         links = react_box.find_elements(By.TAG_NAME, 'a')
         for i in range(1, len(links), 2):
@@ -175,6 +182,7 @@ class FacebookAPI:
         if post_url: self.goto(post_url)
         people = []
         driver.execute_script("window.scrollTo(0, 220)")
+        del driver.requests
         A = driver.find_element(By.CSS_SELECTOR, 
             "[aria-label='See who reacted to this']")
         A.find_element(By.XPATH, '../div').click()
@@ -212,26 +220,20 @@ class FacebookAPI:
         posts_reacts = {}
         posts_read = 0
         for i, post in enumerate(posts):
-            while True:
-                driver.execute_script("return arguments[0].scrollIntoView();", post)
-                time.sleep(self.SCROLL_PAUSE_TIME)
-                try:
-                    react_clicker = post.find_element(By.CSS_SELECTOR, "[aria-label='See who reacted to this']").find_element(By.XPATH, '../div')
-                except NoSuchElementException as e:
-                    break
-                react_clicker.click()
-                react_box = driver.find_element(By.CSS_SELECTOR,"[aria-label='Reactions']")
-                #num_likes = int(react_box.find_element(By.XPATH, ".//div[@role='tab']/div/span/span").text)
-                #self.highlight(react_box)
-                people = self.get_reacts(react_box)
-                posts_read += 1
-                posts_reacts[posts_read] = people
-                num_likes_specific = len(people)
-                print(f'Post #{i+1} likes = {num_likes_specific}')
+            driver.execute_script("return arguments[0].scrollIntoView();", post)
+            time.sleep(self.SCROLL_PAUSE_TIME)
+            try:
+                react_clicker = post.find_element(By.CSS_SELECTOR, "[aria-label='See who reacted to this']").find_element(By.XPATH, '../div')
+            except NoSuchElementException as e:
                 break
-                # if total reacts not same as observed, retry
-                if num_likes == num_likes_specific: break
-            if posts_read == num_posts: break
+            del driver.requests
+            react_clicker.click()
+            react_box = driver.find_element(By.CSS_SELECTOR,"[aria-label='Reactions']")
+            people = self.get_reacts(react_box)
+            posts_read += 1
+            posts_reacts[posts_read] = people
+            num_likes_specific = len(people)
+            print(f'Post #{i+1} likes = {num_likes_specific}')
         return posts_reacts
 
 
@@ -246,7 +248,7 @@ if __name__ == '__main__':
 
     page_url = 'https://www.facebook.com/levelupmalta'
     #page_url = 'https://www.facebook.com/MathsTuitionMalta'
-    page_url = 'https://www.facebook.com/timesofmalta'
+    #page_url = 'https://www.facebook.com/timesofmalta'
 
     with open('credentials.yml') as f:
         credentials = yaml.safe_load(f)
@@ -265,7 +267,6 @@ if __name__ == '__main__':
     rpp = {}
     genders = {}
     for post_num, post_reacts in people.items():
-        print(post_num)
         for person in post_reacts:
             genders[post_num] = {'male': 0, 'female': 0}
             if person not in freqs:
