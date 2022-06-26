@@ -23,6 +23,9 @@ class MyGraphAPI(GraphAPI):
         else:
             access_token = tokens.get('long_user_token')
 
+        if not access_token:
+            raise ValueError('No access token. If specifying page, make sure we have that page_access_token')
+
         super().__init__(
             app_id=app_id, 
             app_secret=app_secret, 

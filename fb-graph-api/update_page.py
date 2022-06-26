@@ -6,14 +6,14 @@ from IPython import embed
 
 competitors = []
 
-def main(pages=None):
+def main(pages):
+    """
+    only specify pages we have page_access_token for now
+    """
 
     conn = MySQLConnector()
 
     insert_query = 'INSERT INTO page VALUES (%s, %s, %s, %s, %s, %s, %s)';
-
-    if pages is None:
-        raise ValueError('provide a page or list of pages')
 
     if not isinstance(pages, list):
         pages = [pages]
@@ -22,6 +22,7 @@ def main(pages=None):
     df = {}
     for page in pages:
         api = MyGraphAPI(page=page)
+
         fields = 'id,fan_count,link,overall_star_rating,rating_count,name'
         res = api.get_object(page_name, fields=fields)
         today = pd.Timestamp.now().date()
@@ -42,7 +43,7 @@ def main(pages=None):
             res['num_photos']
         ))
     print(params)
-    conn.insertmany(insert_query, params)
+    conn.insert(insert_query, params)
 
 if __name__ == '__main__':
     page_name = 'levelupmalta'
