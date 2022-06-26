@@ -14,6 +14,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from IPython import embed
 import os
+import atexit
 
 
 class CookieHandler:
@@ -46,7 +47,7 @@ class CookieHandler:
 class FacebookAPI:
     
     def __init__(self, username, password,
-                 headless=False, maximise=True,
+                 headless=False, maximise=True, close_atexit=True,
                  cookie_fn='fb_cookie.json', implicit_wait=5):
 
         op = webdriver.ChromeOptions()
@@ -76,6 +77,7 @@ class FacebookAPI:
         self.cookie_handler = CookieHandler(cookie_fn)
         self.cookies = self.cookie_handler.load_all()
         self.SCROLL_PAUSE_TIME = 0.5
+        if close_atexit: atexit.register(self.close)
 
 
     def _sign_in(self):
@@ -135,13 +137,10 @@ class FacebookAPI:
                     out.append(json.loads(request.response.body.decode()))
                 except:
                     continue
-        #  A = driver.wait_for_request('graphql', timeout=10)
-        #              Z = X['data']['node']['reactors']
         return out
 
 
     def get_reacts(self, react_box):
-        #people = {'id': [], 'name': []}
         people = []
         driver = self.driver
         prev_link = -1
@@ -155,23 +154,33 @@ class FacebookAPI:
 
             last_link = react_box.find_elements(By.TAG_NAME, 'a')[-1]
             if prev_link != last_link:
-                if 0:
-                    graphql = self._get_graphql(self.driver.requests)[-1]
-                    for reactor in graphql['data']['node']['reactors']['edges']:
-                        people.append(reactor['node']['name'])
-
                 print('scroll #{}'.format(i+1), end='\r')
-                del driver.requests
                 driver.execute_script('arguments[0].scrollIntoView()', last_link)
-                #A = driver.wait_for_request('graphql', timeout=20)
                 i += 1
             prev_link = last_link
         driver.implicitly_wait(self.IMPLICIT_WAIT)
 
-        links = react_box.find_elements(By.TAG_NAME, 'a')
-        for i in range(1, len(links), 2):
-            link = links[i]
-            people.append(link.text)
+        graphqls = self._get_graphql(self.driver.requests)
+
+        for i in range(len(graphqls)):
+            graphql = graphqls[i]
+            try:
+                for reactor in graphql['data']['node']['reactors']['edges']:
+                    namesurname = reactor['node']['name'].split()
+                    name = namesurname[0]
+                    surname = '' if len(namesurname) == 1 else ' '.join(namesurname[1:])
+
+                    people.append({
+                        'id': reactor['node']['id'], 
+                        'name': name, 
+                        'surname': surname, 
+                        'profile_url': reactor['node']['profile_url']
+                    })
+            except KeyError as e:
+                continue
+            except Exception as e:
+                print('Unkown exception', e, flush=True)
+                raise Exception(e)
 
         react_box.find_element(By.CSS_SELECTOR, '[aria-label=Close]').click()
         return people
@@ -201,21 +210,22 @@ class FacebookAPI:
             main_feed = driver.find_elements(By.CSS_SELECTOR, "[role='feed']")[-1]
         except Exception as e:
             pass
-        
-        # Get scroll height
-        last_height = driver.execute_script("return document.body.scrollHeight")
 
         posts = []
         time.sleep(self.SCROLL_PAUSE_TIME)
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         while len(posts) < num_posts:
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            new_height = driver.execute_script("return document.body.scrollHeight")
-            if new_height == last_height and len(posts) > 0: break
-            last_height = new_height
-            time.sleep(self.SCROLL_PAUSE_TIME*2)
+            try:
+                X = main_feed.find_element(By.CLASS_NAME, "suspended-feed")
+            except Exception as e:
+                break
             posts = main_feed.find_elements(By.XPATH, "./div[contains(@class, 'k4urcfbm')]")
+            driver.execute_script("return arguments[0].scrollIntoView();", posts[-1])
             print('Num posts loaded = {}'.format(len(posts)), end='\r')
         print()
+
+        if len(posts) > num_posts: 
+            posts = posts[:num_posts]
 
         posts_reacts = {}
         posts_read = 0
@@ -244,6 +254,12 @@ class FacebookAPI:
 
 
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--headless', help='run in headless mode', action='store_true')
+    parser.add_argument('--closeatexit', help='close at exit', action='store_true')
+    args = parser.parse_args()
+
     url = 'https://www.facebook.com/timesofmalta/posts/pfbid0yE5ttL5xT3CWwiBnQc8k3gwUgBifqNEiHvFGUcAhdVDE35ZwThAA8M1QM3pD5U4yl'
 
     page_url = 'https://www.facebook.com/levelupmalta'
@@ -255,8 +271,9 @@ if __name__ == '__main__':
 
     uname = credentials.get('username')
     pwd = credentials.get('password')
-    headless = False
-    api = FacebookAPI(username=uname, password=pwd, headless=headless)
+    headless = args.headless
+    close_atexit = args.closeatexit
+    api = FacebookAPI(username=uname, password=pwd, headless=headless, close_atexit=close_atexit)
 
     people = api.page_posts(page_url, 20)
     print(people)
@@ -268,13 +285,15 @@ if __name__ == '__main__':
     genders = {}
     for post_num, post_reacts in people.items():
         for person in post_reacts:
+            first_name = person['name']
+            surname = person['surname']
+            person = ' '.join([first_name,surname])
             genders[post_num] = {'male': 0, 'female': 0}
             if person not in freqs:
                 freqs[person] = 1
             else:
                 freqs[person] +=1
 
-            first_name = person.split(' ')[0]
             gender = d.get_gender(first_name)
             if 'female' in gender:
                 genders[post_num]['female'] += 1
@@ -316,4 +335,3 @@ if __name__ == '__main__':
 
         print(likers)
 
-    api.close()
