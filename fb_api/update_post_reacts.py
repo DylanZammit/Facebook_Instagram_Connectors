@@ -2,6 +2,7 @@ from fb_api import MyGraphAPI
 import matplotlib.pyplot as plt
 import pandas as pd
 from connector import MySQLConnector
+import os
 
 query = """
     INSERT INTO post VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -65,7 +66,7 @@ def main(page=None):
         print(f'Post ID = {page_post_id}')
 
     
-    conn = MySQLConnector()
+    conn = MySQLConnector(os.environ.get('SOCIAL_CONN'))
     conn.insert(query, params)
     print('data inserted')
 

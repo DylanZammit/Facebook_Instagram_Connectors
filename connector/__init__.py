@@ -5,9 +5,12 @@ import yaml
 
 class MySQLConnector:
 
-    def __init__(self, host=None, usr=None, pwd=None, db=None):
-        with open('credentials.yml') as f:
-            creds = yaml.safe_load(f)['db']
+    def __init__(self, fn=None, host=None, usr=None, pwd=None, db=None):
+        creds = {}
+
+        if fn:
+            with open(fn) as f:
+                creds = yaml.safe_load(f)['db']
 
         self.kwargs = {
             'host': host if host else creds.get('host'),

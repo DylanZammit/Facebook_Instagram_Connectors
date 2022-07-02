@@ -1,0 +1,159 @@
+from facebook_scraper import *
+import numpy as np
+import time
+import re
+import os
+from connector import MySQLConnector
+import pandas as pd
+
+id2react = {
+    1: 'LIKE',
+    2: 'LOVE',
+    3: 'HAHA',
+    4: 'ANGRY',
+    5: 'SAD',
+    6: 'WOW'
+}
+
+react2id = {v: k for k, v in id2react.items()}
+
+class FacebookStorer:
+
+    def __init__(self, cookies=None):
+        if cookies: set_cookies(cookies)
+        self.conn = MySQLConnector(os.environ.get('SOCIAL_CONN'))
+
+    def store_reactors(self, post_id):
+        reg = r'^(?:.*)\/(?:pages\/[A-Za-z0-9-]+\/)?(?:profile\.php\?id=)?([A-Za-z0-9.]+)'
+        reactors = get_reactors(post_id)
+        
+        for reactor in reactors:
+            react_type = reactor['type']
+            link = reactor['link']
+            identifier = re.match(reg, link).group(1)
+            if identifier == '': 
+                print(f'User {link} identifer not recognized')
+                continue
+            if identifier.isdecimal():
+                user_info = None
+                user_id = identifier
+            else:
+                print(identifier, react_type)
+                try:
+                    user_info = get_profile(identifier)
+                except AttributeError:
+                    print(f'User {link} not found')
+                    continue
+                user_id = user_info.get('id')
+
+            if not user_id:
+                print(f'User {link} has no id')
+                continue
+
+            user_id = int(user_id)
+
+            self.store_user(user_id, user_info)
+            self.store_react(user_id, post_id, react_type)
+            time.sleep(0.5)
+
+
+    def store_react(self, user_id, post_id, react_type, force=False):
+        react_exists_query = f'SELECT COUNT(*) FROM post_likes WHERE user_id={user_id} AND post_id={post_id}'
+        #react_exists_query = f'SELECT COUNT(*) FROM post_reacts WHERE user_id={user_id} AND post_id={post_id}'
+        exists = self.conn.execute(react_exists_query).iloc[0][0]
+        if exists and not force: return
+        react_type = react_type.upper()
+
+        if isinstance(react_type, int) or react_type.isdecimal():
+            react_id = int(react_type)
+            if react_id not in id2react:
+                print(f'React {react_type} not recognized for post={post_id} and user = {user_id}')
+                return
+        else:
+            if react_type not in react2id:
+                print(f'React {react_type} not recognized for post={post_id} and user = {user_id}')
+            react_id = react2id[react_type]
+
+        insert_query = f'INSERT INTO post_reacts VALUES ({post_id}, {user_id}, {react_id})'
+        
+        print(insert_query)
+        #self.conn.insert(insert_query)
+
+
+    def store_user(self, user_id, info=None, force=False):
+        user_exists_query = f'SELECT COUNT(*) FROM users WHERE user_id={user_id}'
+        exists = self.conn.execute(user_exists_query).iloc[0][0]
+        if exists and not force: return
+
+        print(f'storing user id = {user_id}')
+        if not info:
+            info = get_profile(str(user_id))
+
+        name_surname = info.get('Name')
+        name, surname = name_surname.split()[0], ' '.join(name_surname.split()[1:])
+        localities = info.get('Places lived', [])
+        locality = None
+        if len(localities):
+            locality = next((loc['text'] for loc in localities if loc['type'] == 'Current City'), None)
+            if not locality:
+                locality = localities[0]['text']
+        num_friends = info.get('Friend_count')
+
+        contact_info = info.get('Contact info \nEdit', '').split('\n')
+
+        mobile, email = None, None
+        if 'Mobile' in contact_info:
+            mobile = contact_info[contact_info.index('Mobile')-1]
+        if 'Email' in contact_info:
+            email = contact_info[contact_info.index('Email')-1]
+
+        basic_info = info.get('Basic info \nEdit', '').split('\n')
+
+        dob, gender = None, None
+        if 'Birthday' in basic_info:
+            dob = basic_info[basic_info.index('Birthday')-1]
+        if 'Gender' in basic_info:
+            gender = basic_info[basic_info.index('Gender')-1]
+
+        insert_query = """
+            INSERT INTO users VALUES
+            ({}, {}, {}, {}, {}, {}, {}, {}, {})
+        """.format(user_id, name, surname, locality, num_friends, mobile, email, dob, gender)
+
+        print(insert_query)
+        #self.conn.insert(insert_query)
+
+    # TODO: finish this method
+    def store_posts(self, page_id, num_posts=None, 
+                    get_comments=False, get_sharers=False, 
+                    get_reactors=False, **kwargs):
+        """
+        can use api for this
+        """
+
+        raise NotImplementedError
+
+        options = {
+            'comments': get_comments, 
+            'sharers': get_sharers, 
+            'reactors': get_reactors
+        }
+
+        posts = get_posts(page_id, options=options, **kwargs)
+        if not num_posts: num_posts = np.inf
+        for i, post in enumerate(posts):
+            if i >= num_posts: break
+            post_id = post['post_id']
+            content = post['text']
+
+            breakpoint()
+
+if __name__ == '__main__':
+    page_name = 'levelupmalta'
+    cookies = 'cookies.txt'
+    post_id = '104704395524093'
+    
+    fb = FacebookStorer(cookies)
+
+    fb.store_reactors(post_id)
+

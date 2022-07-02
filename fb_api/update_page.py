@@ -11,7 +11,7 @@ def main(pages):
     only specify pages we have page_access_token for now
     """
 
-    conn = MySQLConnector()
+    conn = MySQLConnector(os.environ.get('SOCIAL_CONN'))
 
     insert_query = 'INSERT INTO page VALUES (%s, %s, %s, %s, %s, %s, %s)';
 

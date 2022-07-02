@@ -203,6 +203,7 @@ class FacebookAPI:
     def page_posts(self, url, num_posts=None):
         if not num_posts: num_posts = np.inf
         driver = self.driver
+        del driver.requests
         self.goto(url)
         main_feed = driver.find_elements(By.CSS_SELECTOR, "[role='main']")[-1]
         main_feed = main_feed.find_element(By.CLASS_NAME, "k4urcfbm")
@@ -223,6 +224,33 @@ class FacebookAPI:
             driver.execute_script("return arguments[0].scrollIntoView();", posts[-1])
             print('Num posts loaded = {}'.format(len(posts)), end='\r')
         print()
+        time.sleep(5)
+        graphqls = self._get_graphql(driver.requests)
+        for i in range(len(graphqls)):
+            graphql = graphqls[i]
+            try:
+                print(graphql['data']['node'].keys())
+            except:
+                pass
+            breakpoint()
+            try:
+                for commentor in graphql['data']['node']['display_comments']['edges']:
+                    breakpoint()
+                    #namesurname = reactor['node']['name'].split()
+                    #name = namesurname[0]
+                    #surname = '' if len(namesurname) == 1 else ' '.join(namesurname[1:])
+
+                    #people.append({
+                    #    'id': reactor['node']['id'], 
+                    #    'name': name, 
+                    #    'surname': surname, 
+                    #    'profile_url': reactor['node']['profile_url']
+                    #})
+            except KeyError as e:
+                continue
+            except Exception as e:
+                print('Unkown exception', e, flush=True)
+                raise Exception(e)
 
         if len(posts) > num_posts: 
             posts = posts[:num_posts]
@@ -262,9 +290,9 @@ if __name__ == '__main__':
 
     url = 'https://www.facebook.com/timesofmalta/posts/pfbid0yE5ttL5xT3CWwiBnQc8k3gwUgBifqNEiHvFGUcAhdVDE35ZwThAA8M1QM3pD5U4yl'
 
-    page_url = 'https://www.facebook.com/levelupmalta'
+    #page_url = 'https://www.facebook.com/levelupmalta'
     #page_url = 'https://www.facebook.com/MathsTuitionMalta'
-    #page_url = 'https://www.facebook.com/timesofmalta'
+    page_url = 'https://www.facebook.com/timesofmalta'
 
     with open('credentials.yml') as f:
         credentials = yaml.safe_load(f)
