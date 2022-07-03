@@ -7,7 +7,7 @@ from connector import MySQLConnector
 import pandas as pd
 from facebook_scraper.exceptions import TemporarilyBanned
 
-def rsleep(t, cap=3, q=True):
+def rsleep(t, cap=5, q=True):
     sleep = t+np.random.randint(0, cap)
     if not q: 
         print(f'Sleep for {sleep} seconds...', end='\r')
@@ -26,10 +26,10 @@ react2id = {v: k for k, v in id2react.items()}
 
 class FacebookStorer:
 
-    def __init__(self, cookies=None):
+    def __init__(self, cookies=None, throttle=5):
         if cookies: set_cookies(cookies)
         self.conn = MySQLConnector(os.environ.get('SOCIAL_CONN'))
-        self.throttle = 5
+        self.throttle = throttle
 
     # TODO: throttle on ban
     # TODO: switch proxy/cookie on ban
