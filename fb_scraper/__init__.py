@@ -5,6 +5,13 @@ import re
 import os
 from connector import MySQLConnector
 import pandas as pd
+from facebook_scraper.exceptions import TemporarilyBanned
+
+def rsleep(t, sig=1, q=True):
+    sleep = int(max([t, t+np.random.randn()*sig]))+1
+    if not q: 
+        print(f'Sleep for {sleep} seconds...', end='\r')
+    time.sleep(sleep)
 
 id2react = {
     1: 'LIKE',
@@ -22,29 +29,48 @@ class FacebookStorer:
     def __init__(self, cookies=None):
         if cookies: set_cookies(cookies)
         self.conn = MySQLConnector(os.environ.get('SOCIAL_CONN'))
+        self.throttle = 5
 
+    # TODO: throttle on ban
+    # TODO: switch proxy/cookie on ban
     def store_reactors(self, post_id):
+        print(f'storing reacts for post_id={post_id}'
         reg = r'^(?:.*)\/(?:pages\/[A-Za-z0-9-]+\/)?(?:profile\.php\?id=)?([A-Za-z0-9.]+)'
         reactors = get_reactors(post_id)
-        
+
         for reactor in reactors:
             react_type = reactor['type']
             link = reactor['link']
             identifier = re.match(reg, link).group(1)
+            user_id = None
+            user_info = None
+
             if identifier == '': 
                 print(f'User {link} identifer not recognized')
                 continue
-            if identifier.isdecimal():
-                user_info = None
-                user_id = identifier
-            else:
+
+            if not identifier.isdecimal():
                 print(identifier, react_type)
-                try:
-                    user_info = get_profile(identifier)
-                except AttributeError:
-                    print(f'User {link} not found')
-                    continue
-                user_id = user_info.get('id')
+                stored_reactors_query = f"SELECT COUNT(*) FROM users WHERE text_id='{identifier}'"
+                user_exists = self.conn.execute(stored_reactors_query).iloc[0][0]
+
+                if not user_exists:
+                    try:
+                        user_info = get_profile(identifier)
+                        user_info['text_id'] = identifier
+                    except AttributeError:
+                        print(f'User {link} not found')
+                        continue
+                    except TemporarilyBanned as e:
+                        print(f'Account temporarily banned: {str(e)}')
+                        raise Exception
+                    user_id = user_info.get('id')
+                else:
+                    user_id_query = f"SELECT user_id FROM users WHERE text_id='{identifier}'"
+                    user_id = self.conn.execute(user_id_query).user_id[0]
+                    print(f'User {identifier}:{user_id} already exists')
+            else:
+                user_id = int(identifier)
 
             if not user_id:
                 print(f'User {link} has no id')
@@ -52,14 +78,16 @@ class FacebookStorer:
 
             user_id = int(user_id)
 
-            self.store_user(user_id, user_info)
+            if user_exists:
+                print(f'User {identifier} already stored for this post')
+            else:
+                self.store_user(user_id, user_info)
+
             self.store_react(user_id, post_id, react_type)
-            time.sleep(0.5)
+            rsleep(self.throttle, q=False)
 
-
-    def store_react(self, user_id, post_id, react_type, force=False):
-        react_exists_query = f'SELECT COUNT(*) FROM post_likes WHERE user_id={user_id} AND post_id={post_id}'
-        #react_exists_query = f'SELECT COUNT(*) FROM post_reacts WHERE user_id={user_id} AND post_id={post_id}'
+    def store_react(self, user_id: int, post_id: int, react_type: int, force=False):
+        react_exists_query = f'SELECT COUNT(*) FROM post_reacts WHERE user_id={user_id} AND post_id={post_id}'
         exists = self.conn.execute(react_exists_query).iloc[0][0]
         if exists and not force: return
         react_type = react_type.upper()
@@ -74,13 +102,14 @@ class FacebookStorer:
                 print(f'React {react_type} not recognized for post={post_id} and user = {user_id}')
             react_id = react2id[react_type]
 
-        insert_query = f'INSERT INTO post_reacts VALUES ({post_id}, {user_id}, {react_id})'
-        
-        print(insert_query)
-        #self.conn.insert(insert_query)
+        insert_query = 'INSERT INTO post_reacts VALUES (%s, %s, %s)'
+        row = (post_id, user_id, react_id)
+        print(row)
+        self.conn.insert(insert_query, row)
 
 
-    def store_user(self, user_id, info=None, force=False):
+    # TODO: store user string identifier. Allows for easy lookup
+    def store_user(self, user_id: int, info=None, force=False):
         user_exists_query = f'SELECT COUNT(*) FROM users WHERE user_id={user_id}'
         exists = self.conn.execute(user_exists_query).iloc[0][0]
         if exists and not force: return
@@ -115,13 +144,15 @@ class FacebookStorer:
         if 'Gender' in basic_info:
             gender = basic_info[basic_info.index('Gender')-1]
 
+        text_id = info.get('text_id')
+
         insert_query = """
             INSERT INTO users VALUES
-            ({}, {}, {}, {}, {}, {}, {}, {}, {})
-        """.format(user_id, name, surname, locality, num_friends, mobile, email, dob, gender)
-
-        print(insert_query)
-        #self.conn.insert(insert_query)
+            (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        row = (user_id, text_id, name, surname, locality, num_friends, mobile, email, dob, gender)
+        print(row)
+        self.conn.insert(insert_query, row)
 
     # TODO: finish this method
     def store_posts(self, page_id, num_posts=None, 
@@ -136,7 +167,8 @@ class FacebookStorer:
         options = {
             'comments': get_comments, 
             'sharers': get_sharers, 
-            'reactors': get_reactors
+            'reactors': get_reactors,
+            'posts_per_page': 20
         }
 
         posts = get_posts(page_id, options=options, **kwargs)
