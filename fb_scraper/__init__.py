@@ -33,7 +33,7 @@ class FacebookStorer:
 
     # TODO: throttle on ban
     # TODO: switch proxy/cookie on ban
-    def store_reactors(self, post_id):
+    def store_reactors(self, post_id, store_user=True):
         print(f'storing reacts for post_id={post_id}')
         reg = r'^(?:.*)\/(?:pages\/[A-Za-z0-9-]+\/)?(?:profile\.php\?id=)?([A-Za-z0-9.]+)'
         reactors = get_reactors(post_id)
@@ -54,7 +54,7 @@ class FacebookStorer:
                 stored_reactors_query = f"SELECT COUNT(*) FROM users WHERE text_id='{identifier}'"
                 user_exists = self.conn.execute(stored_reactors_query).iloc[0][0]
 
-                if not user_exists:
+                if not user_exists and store_user:
                     try:
                         user_info = get_profile(identifier)
                         user_info['text_id'] = identifier
@@ -80,7 +80,7 @@ class FacebookStorer:
 
             if user_exists:
                 print(f'User {identifier} already stored for this post')
-            else:
+            elif store_user:
                 self.store_user(user_id, user_info)
                 rsleep(self.throttle, q=False)
             self.store_react(user_id, post_id, react_type)
@@ -141,7 +141,12 @@ class FacebookStorer:
         dob, gender = None, None
         if 'Birthday' in basic_info:
             dob = basic_info[basic_info.index('Birthday')-1]
-            dob = pd.Timestamp(dob).strftime('%Y-%m-%d')
+            try:
+                dob = pd.Timestamp(dob).strftime('%Y-%m-%d')
+            except:
+                print(f'Invalid DOB {dob} for {name_surname}:{user_id}')
+                dob = None
+
         if 'Gender' in basic_info:
             gender = basic_info[basic_info.index('Gender')-1][0]
 
