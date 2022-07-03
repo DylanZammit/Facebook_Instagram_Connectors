@@ -7,8 +7,8 @@ from connector import MySQLConnector
 import pandas as pd
 from facebook_scraper.exceptions import TemporarilyBanned
 
-def rsleep(t, sig=1, q=True):
-    sleep = int(max([t, t+np.random.randn()*sig]))+1
+def rsleep(t, cap=3, q=True):
+    sleep = t+np.random.randint(0, cap)
     if not q: 
         print(f'Sleep for {sleep} seconds...', end='\r')
     time.sleep(sleep)
@@ -131,18 +131,19 @@ class FacebookStorer:
         contact_info = info.get('Contact info \nEdit', '').split('\n')
 
         mobile, email = None, None
-        if 'Mobile' in contact_info:
+        if 'Mobile \nEdit' in contact_info:
             mobile = contact_info[contact_info.index('Mobile')-1]
-        if 'Email' in contact_info:
+        if 'Email \nEdit' in contact_info:
             email = contact_info[contact_info.index('Email')-1]
 
-        basic_info = info.get('Basic info \nEdit', '').split('\n')
+        basic_info = info.get('Basic info', '').split('\n')
 
         dob, gender = None, None
         if 'Birthday' in basic_info:
             dob = basic_info[basic_info.index('Birthday')-1]
+            dob = pd.Timestamp(dob).strftime('%Y-%m-%d')
         if 'Gender' in basic_info:
-            gender = basic_info[basic_info.index('Gender')-1]
+            gender = basic_info[basic_info.index('Gender')-1][0]
 
         text_id = info.get('text_id')
 
