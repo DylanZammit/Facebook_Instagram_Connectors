@@ -34,7 +34,7 @@ class FacebookStorer:
     # TODO: throttle on ban
     # TODO: switch proxy/cookie on ban
     def store_reactors(self, post_id):
-        print(f'storing reacts for post_id={post_id}'
+        print(f'storing reacts for post_id={post_id}')
         reg = r'^(?:.*)\/(?:pages\/[A-Za-z0-9-]+\/)?(?:profile\.php\?id=)?([A-Za-z0-9.]+)'
         reactors = get_reactors(post_id)
 
@@ -82,9 +82,9 @@ class FacebookStorer:
                 print(f'User {identifier} already stored for this post')
             else:
                 self.store_user(user_id, user_info)
-
+                rsleep(self.throttle, q=False)
             self.store_react(user_id, post_id, react_type)
-            rsleep(self.throttle, q=False)
+
 
     def store_react(self, user_id: int, post_id: int, react_type: int, force=False):
         react_exists_query = f'SELECT COUNT(*) FROM post_reacts WHERE user_id={user_id} AND post_id={post_id}'
