@@ -7,7 +7,7 @@ from connector import MySQLConnector
 import pandas as pd
 from facebook_scraper.exceptions import TemporarilyBanned
 
-def rsleep(t, cap=5, q=True):
+def rsleep(t, cap=10, q=True):
     sleep = t+np.random.randint(0, cap)
     if not q: 
         print(f'Sleep for {sleep} seconds...', end='\r')
@@ -26,14 +26,14 @@ react2id = {v: k for k, v in id2react.items()}
 
 class FacebookStorer:
 
-    def __init__(self, cookies=None, throttle=5):
+    def __init__(self, cookies=None, throttle=10):
         if cookies: set_cookies(cookies)
         self.conn = MySQLConnector(os.environ.get('SOCIAL_CONN'))
         self.throttle = throttle
 
     # TODO: throttle on ban
     # TODO: switch proxy/cookie on ban
-    def store_reactors(self, post_id, store_user=True):
+    def store_reactors(self, post_id):
         print(f'storing reacts for post_id={post_id}')
         reg = r'^(?:.*)\/(?:pages\/[A-Za-z0-9-]+\/)?(?:profile\.php\?id=)?([A-Za-z0-9.]+)'
         reactors = get_reactors(post_id)
@@ -49,12 +49,13 @@ class FacebookStorer:
                 print(f'User {link} identifer not recognized')
                 continue
 
+            user_exists = False
             if not identifier.isdecimal():
                 print(identifier, react_type)
                 stored_reactors_query = f"SELECT COUNT(*) FROM users WHERE text_id='{identifier}'"
                 user_exists = self.conn.execute(stored_reactors_query).iloc[0][0]
 
-                if not user_exists and store_user:
+                if not user_exists:
                     try:
                         user_info = get_profile(identifier)
                         user_info['text_id'] = identifier
@@ -67,7 +68,8 @@ class FacebookStorer:
                     user_id = user_info.get('id')
                 else:
                     user_id_query = f"SELECT user_id FROM users WHERE text_id='{identifier}'"
-                    user_id = self.conn.execute(user_id_query).user_id[0]
+                    user_id = self.conn.execute(user_id_query)
+                    user_id = user_id.user_id[0]
                     print(f'User {identifier}:{user_id} already exists')
             else:
                 user_id = int(identifier)
@@ -80,7 +82,7 @@ class FacebookStorer:
 
             if user_exists:
                 print(f'User {identifier} already stored for this post')
-            elif store_user:
+            else:
                 self.store_user(user_id, user_info)
                 rsleep(self.throttle, q=False)
             self.store_react(user_id, post_id, react_type)
@@ -128,12 +130,12 @@ class FacebookStorer:
                 locality = localities[0]['text']
         num_friends = info.get('Friend_count')
 
-        contact_info = info.get('Contact info \nEdit', '').split('\n')
+        contact_info = info.get('Contact info', '').split('\n')
 
         mobile, email = None, None
-        if 'Mobile \nEdit' in contact_info:
+        if 'Mobile' in contact_info:
             mobile = contact_info[contact_info.index('Mobile')-1]
-        if 'Email \nEdit' in contact_info:
+        if 'Email' in contact_info:
             email = contact_info[contact_info.index('Email')-1]
 
         basic_info = info.get('Basic info', '').split('\n')
@@ -188,10 +190,18 @@ class FacebookStorer:
 
 if __name__ == '__main__':
     page_name = 'levelupmalta'
+
+    from fb_api import MyGraphAPI
+    api = MyGraphAPI() 
+    posts = api.get_object(f'{page_name}/posts').get('data', [])
+    post_ids = [post['id'].split('_')[1] for post in posts]
+
     cookies = 'cookies.txt'
     post_id = '104704395524093'
     
     fb = FacebookStorer(cookies)
-
-    fb.store_reactors(post_id)
+    
+    for post_id in post_ids:
+        fb.store_reactors(post_id)
+        rsleep(60, cap=10, q=False)
 

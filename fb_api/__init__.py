@@ -1,16 +1,18 @@
 from pyfacebook import GraphAPI
 import yaml
+import os
 
 
 class MyGraphAPI(GraphAPI):
 
-    def __init__(self, token_fn='tokens.yml', page=None, version='v14.0'):
+    def __init__(self, token_fn=None, page=None, version='v14.0'):
         """
         token_fn - file name containing tokens
         page - use page_access_token instead of app_access_token
         version - version of FB GraphAPI
         """
 
+        token_fn = os.environ.get('FB_API_CRED')
         with open(token_fn) as f:
             tokens = yaml.safe_load(f)
         self.tokens = tokens
