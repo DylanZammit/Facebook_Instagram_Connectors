@@ -18,9 +18,9 @@ reg_identifier = r'^(?:.*)\/(?:pages\/[A-Za-z0-9-]+\/)?(?:profile\.php\?id=)?([A
 def rsleep(t, cap=10, q=True):
     sleep = t+np.random.randint(0, cap)
     if not q: 
-        print(f'Sleep for {sleep} seconds...', end='\r')
+        print(f'Sleep for {sleep} seconds...', end='')
     time.sleep(sleep)
-    print('done')
+    if not q: print('done')
 
 id2react = {
     1: 'LIKE',
@@ -362,7 +362,7 @@ if __name__ == '__main__':
     fb = FacebookStorer(cookies)
 
     print('storing posts')
-    fb.store_posts(page_name, 3)
+    fb.store_posts(page_name, 10)
     breakpoint()
 
     from fb_api import MyGraphAPI
