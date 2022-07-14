@@ -7,6 +7,9 @@ import os
 from connector import MySQLConnector
 import pandas as pd
 from facebook_scraper.exceptions import TemporarilyBanned, NotFound
+from selenium.webdriver.common.proxy import Proxy, ProxyType
+from random_user_agent.user_agent import UserAgent
+from random_user_agent.params import SoftwareName, OperatingSystem
 from IPython import embed
 
 reg_identifier = r'^(?:.*)\/(?:pages\/[A-Za-z0-9-]+\/)?(?:profile\.php\?id=)?([A-Za-z0-9.]+)'
@@ -17,6 +20,7 @@ def rsleep(t, cap=10, q=True):
     if not q: 
         print(f'Sleep for {sleep} seconds...', end='\r')
     time.sleep(sleep)
+    print('done')
 
 id2react = {
     1: 'LIKE',
@@ -35,6 +39,14 @@ class FacebookStorer:
         if cookies: set_cookies(cookies)
         self.conn = MySQLConnector(os.environ.get('SOCIAL_CONN'))
         self.throttle = throttle
+
+        software_names = [SoftwareName.CHROME.value]
+        operating_systems = [OperatingSystem.WINDOWS.value, OperatingSystem.LINUX.value]
+        user_agent_rotator = UserAgent(software_names=software_names, opearting_systems=operating_systems, limit=100)
+        user_agent = user_agent_rotator.get_random_user_agent()
+
+        set_user_agent(user_agent)
+
 
     # TODO: throttle on ban
     # TODO: switch proxy/cookie on ban
@@ -136,6 +148,7 @@ class FacebookStorer:
             rows.append(row)
         print(rows)
         self.conn.insert(insert_query, rows)
+        return rows
 
     def store_simple_user(self, users = None, user_id = None, name = None, surname = None, force=False):
 
@@ -164,6 +177,7 @@ class FacebookStorer:
         """
         print(rows)
         self.conn.insert(insert_query, rows)
+        return rows
 
 
     # TODO: store user string identifier. Allows for easy lookup
@@ -233,6 +247,7 @@ class FacebookStorer:
             'comments': True, 
             'sharers': True, 
             'reactors': True,
+            'progress': True,
             'posts_per_page': 20
         }
 
@@ -298,8 +313,6 @@ class FacebookStorer:
                 reactor_id = re.match(reg_identifier, link).group(1)
                 post_reacts.append((reactor_id, post_id, react_type))
                 new_users.append((reactor_id, name, surname))
-                #self.store_react(reactor_id, post_id, react_type)
-                #self.store_simple_user(reactor_id, name, surname)
 
 
             for comment in post['comments_full']:
@@ -313,28 +326,27 @@ class FacebookStorer:
                 text = comment['comment_text']
                 #ALSO STORE REPLIES
                 new_users.append((commentor_id, name, surname))
-                #self.store_simple_user(commentor_id, name, surname)
 
-            rsleep(2, 2)
-            #rsleep(10, 10)
+            rsleep(10, 10, q=False)
+
         insert_eng = """
             INSERT INTO post_engagement VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
 
-        insert_fixed = """
-            INSERT INTO post_fixed VALUES (%s, %s, %s, %s, %s, %s)
-        """
-
-        breakpoint()
-        print('storing data')
+        print('storing data...')
         if len(new_users):
-            self.store_simple_user(new_users)
-            print(f'{len(new_users)} rows of new users inserted')
+            rows = self.store_simple_user(new_users)
+            print(f'{len(rows)} rows of new users inserted')
+        else:
+            print('No new users to insert')
 
         if len(post_reacts):
-            self.store_react(post_reacts)
+            rows = self.store_react(post_reacts)
             print(f'{len(params_eng)} rows of engagement data inserted')
+        else:
+            print('No post reacts to insert')
 
+        # TODO: check for duplicates first!!
         if len(params_eng):
             self.conn.insert(insert_eng, params_eng)
             print(f'{len(params_eng)} rows of engagement data inserted')
@@ -343,12 +355,6 @@ class FacebookStorer:
 
 
 if __name__ == '__main__':
-    #from selenium.webdriver.common.proxy import Proxy, proxyType
-    default_headers = {
-        'Accept-Language': 'en-US,en;q=0.5',
-        "Sec-Fetch-User": "?1",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/603.3.8 (KHTML, like Gecko) Version/10.1.2 Safari/603.3.8",
-    }
 
     cookies = 'cookies.txt'
     page_name = 'levelupmalta'
