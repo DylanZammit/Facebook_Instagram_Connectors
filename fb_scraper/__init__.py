@@ -11,6 +11,7 @@ from selenium.webdriver.common.proxy import Proxy, ProxyType
 from random_user_agent.user_agent import UserAgent
 from random_user_agent.params import SoftwareName, OperatingSystem
 from IPython import embed
+from fb_api import MyGraphAPI
 
 reg_identifier = r'^(?:.*)\/(?:pages\/[A-Za-z0-9-]+\/)?(?:profile\.php\?id=)?([A-Za-z0-9.]+)'
 
@@ -48,7 +49,6 @@ class FacebookStorer:
         set_user_agent(user_agent)
 
 
-    # TODO: throttle on ban
     # TODO: switch proxy/cookie on ban
     def store_reactors(self, post_id):
         print(f'storing reacts for post_id={post_id}')
@@ -74,8 +74,8 @@ class FacebookStorer:
             user_exists = False
             if not identifier.isdecimal():
                 print(identifier, react_type)
-                stored_reactors_query = f"SELECT COUNT(*) FROM users WHERE text_id='{identifier}'"
-                user_exists = self.conn.execute(stored_reactors_query).iloc[0][0]
+                stored_reactors_query = f"SELECT 1 FROM users WHERE text_id='{identifier}' LIMTI 1"
+                user_exists = len(self.conn.execute(stored_reactors_query))
 
                 if not user_exists:
                     try:
@@ -112,10 +112,10 @@ class FacebookStorer:
 
     def store_post_fixed(self, info):
         exists_query = """
-            SELECT COUNT(*) FROM post_fixed WHERE post_id='{}'
+            SELECT 1 FROM post_fixed WHERE post_id='{}' LIMIT 1
         """
         insert_query = """
-            INSERT INTO post_fixed VALUE (%s, %s, %s, %s, %s, %s)
+            INSERT INTO post_fixed VALUE (%s, %s, %s, %s, %s, %s, %s)
         """
 
         rows = []
@@ -127,7 +127,7 @@ class FacebookStorer:
         for post in info:
             post_id = post['post_id']
             currquery = exists_query.format(post_id)
-            exists = self.conn.execute(currquery).iloc[0][0]
+            exists = len(self.conn.execute(currquery))
             if exists: 
                 print(f'Post {post_id} already exists')
                 continue
@@ -138,6 +138,7 @@ class FacebookStorer:
                 post['has_video'],
                 post['has_image'],
                 post['post_time'],
+                post['was_live'],
             )
             rows.append(row)
 
@@ -146,7 +147,7 @@ class FacebookStorer:
 
     def store_post_engagements(self, info):
         exists_query = """
-            SELECT COUNT(*) FROM post_engagement WHERE post_id='{}' AND scrape_date='{}'
+            SELECT 1 FROM post_engagement WHERE post_id='{}' AND scrape_date='{}' LIMIT 1
         """
         insert_query = """
             INSERT INTO post_engagement VALUE (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -163,7 +164,7 @@ class FacebookStorer:
         for post in info:
             post_id = post['post_id']
             currquery = exists_query.format(post_id, scrape_date)
-            exists = self.conn.execute(currquery).iloc[0][0]
+            exists = len(self.conn.execute(currquery))
             if exists: 
                 print(f'Post {post_id} on {str(scrape_date)} already exists')
                 continue
@@ -195,14 +196,15 @@ class FacebookStorer:
         print('storing reacts...')
         for user_id, post_id, react_type in reacts:
             react_exists_query = f"""
-                SELECT COUNT(*) 
+                SELECT 1
                 FROM post_reacts 
                 WHERE 
                     user_id='{user_id}' AND
                     post_id={post_id} AND
                     scrape_date='{scrape_date.strftime('%Y-%m-%d')}'
+                LIMIT 1
             """
-            exists = self.conn.execute(react_exists_query).iloc[0][0]
+            exists = len(self.conn.execute(react_exists_query))
             if exists and not force: return
             #react_type = react_type.upper()
 
@@ -224,7 +226,7 @@ class FacebookStorer:
 
     def store_simple_user(self, info):
         exists_query = """
-            SELECT COUNT(*) FROM users_simple WHERE user_id='{}'
+            SELECT 1 FROM users_simple WHERE user_id='{}'LIMIT 1
         """
         
         insert_query = """
@@ -241,13 +243,14 @@ class FacebookStorer:
 
         for user in info:
             user_id = user['user_id']
-            print(f'storing {user_id}')
             name = user['name']
             #currquery = exists_query.format(user_id)
-            #exists = self.conn.execute(currquery).iloc[0][0]
+            #exists = len(self.conn.execute(currquery))
             if user_id in exists: 
                 print(f'{user_id} already exists')
                 continue
+
+            print(f'storing {user_id}')
 
             d = getgender.Detector(case_sensitive=False)
             gender = d.get_gender(name)
@@ -272,8 +275,8 @@ class FacebookStorer:
 
     # TODO: store user string identifier. Allows for easy lookup
     def store_full_user(self, user_id: int, info=None, force=False):
-        user_exists_query = f'SELECT COUNT(*) FROM users WHERE user_id={user_id}'
-        exists = self.conn.execute(user_exists_query).iloc[0][0]
+        user_exists_query = f"SELECT 1 FROM users WHERE user_id='{user_id}' LIMIT 1"
+        exists = len(self.conn.execute(user_exists_query))
         if exists and not force: return
 
         print(f'storing user id = {user_id}')
@@ -368,7 +371,8 @@ class FacebookStorer:
                     'has_text': has_text,
                     'has_video': has_video,
                     'has_image': has_image,
-                    'post_time': post_time
+                    'post_time': post_time,
+                    'was_live': was_live
                 })
 
                 for sharer in post['sharers']:
@@ -414,8 +418,8 @@ class FacebookStorer:
                     react_str = react_str.upper()
                     react_type = react2id.get(react_str)
                     if react_type is None:
-                        print(f'Special react {react_str} for {name_surname}')
-                        continue
+                        print(f'Treating special react {react_str} by {name_surname} as LIKE')
+                        react_type = react2id.get('LIKE')
                     link = reactor['link']
                     reactor_id = re.match(reg_identifier, link).group(1)
                     post_reacts.append((reactor_id, post_id, react_type))
@@ -482,10 +486,10 @@ if __name__ == '__main__':
     fb = FacebookStorer(cookies)
 
     print('storing posts')
-    fb.store_posts(page_name, 3)
+    #fb.store_posts(page_name, 10)
+    fb.store_posts(page_name, 2)
     breakpoint()
 
-    from fb_api import MyGraphAPI
     api = MyGraphAPI() 
     posts = api.get_object(f'{page_name}/posts').get('data', [])
     post_ids = [post['id'].split('_')[1] for post in posts]
