@@ -107,8 +107,46 @@ class FacebookStorer:
                 rsleep(self.throttle, q=False)
             self.store_react(user_id, post_id, react_type)
 
-    def store_comment(self, comment_id, user_id, text):
-        raise NotImplementedError
+    def store_post_comment(self, info):
+        exists_query = """
+            SELECT 1 FROM post_comments WHERE comment_id='{}' LIMIT 1
+        """
+        
+        insert_query = """
+            INSERT INTO post_comments VALUE (%s, %s, %s, %s, %s, %s, %s)
+        """
+
+        scrape_date = datetime.now().date().strftime('%Y-%m-%d')
+        rows = []
+        if isinstance(info, dict):
+            info = [info]
+        elif not isinstance(info, list):
+            print('must pass list of dicts or single dict')
+        # memory inefficient for large db 
+        exists = self.conn.execute('SELECT comment_id FROM post_comments').values
+
+        for comment in info:
+            comment_id = comment['comment_id']
+            if comment_id in exists: 
+                print(f'{comment_id} already exists')
+                continue
+
+            print(f'storing {comment_id}')
+
+            row = (
+                comment_id,
+                scrape_date,
+                comment['post_id'],
+                comment['create_time'],
+                comment['user_id'],
+                comment['num_reacts'],
+                comment['num_replies']
+            )
+            rows.append(row)
+
+        rows = list(set(rows))
+        self.conn.insert(insert_query, rows)
+        return rows
 
     def store_post_fixed(self, info):
         exists_query = """
@@ -187,38 +225,41 @@ class FacebookStorer:
         self.conn.insert(insert_query, rows)
         return rows
 
-    def store_react(self, reacts: list = None, user_id: str = None, post_id: int = None, react_type: int = None, force: bool = False):
+    def store_react(self, reacts=None, user_id=None, post_idi=None, react_type=None):
         scrape_date = datetime.now().date()
         if reacts is None:
             reacts = [(user_id, post_id, react_type)]
 
         rows = []
         print('storing reacts...')
+        df = self.conn.execute('SELECT user_id, post_id FROM post_reacts')
+        insert_query = 'INSERT INTO post_reacts VALUES (%s, %s, %s, %s)'
         for user_id, post_id, react_type in reacts:
-            react_exists_query = f"""
-                SELECT 1
-                FROM post_reacts 
-                WHERE 
-                    user_id='{user_id}' AND
-                    post_id={post_id} AND
-                    scrape_date='{scrape_date.strftime('%Y-%m-%d')}'
-                LIMIT 1
-            """
-            exists = len(self.conn.execute(react_exists_query))
-            if exists and not force: return
-            #react_type = react_type.upper()
+            #react_exists_query = f"""
+            #    SELECT 1
+            #    FROM post_reacts 
+            #    WHERE 
+            #        user_id='{user_id}' AND
+            #        post_id={post_id} AND
+            #        scrape_date='{scrape_date.strftime('%Y-%m-%d')}'
+            #    LIMIT 1
+            #"""
+            #exists = len(self.conn.execute(react_exists_query))
+            #if exists and not force: return
+
+            if len(df[(df.user_id==user_id)&(df.post_id==post_id)]) > 0: continue
 
             if isinstance(react_type, int) or react_type.isdecimal():
                 react_id = int(react_type)
                 if react_id not in id2react:
                     print(f'React {react_type} not recognized for post={post_id} and user = {user_id}')
-                    return
+                    continue
             else:
                 if react_type not in react2id:
                     print(f'React {react_type} not recognized for post={post_id} and user = {user_id}')
+                    continue
                 react_id = react2id[react_type]
 
-            insert_query = 'INSERT INTO post_reacts VALUES (%s, %s, %s, %s)'
             row = (scrape_date, post_id, user_id, react_id)
             rows.append(row)
         self.conn.insert(insert_query, rows)
@@ -350,6 +391,7 @@ class FacebookStorer:
         post_reacts = []
         new_users = []
         posts_fixed = []
+        post_comments = []
         for i, post in enumerate(posts):
             try:
                 if i >= num_posts: break
@@ -429,7 +471,6 @@ class FacebookStorer:
                         'surname': surname
                     })
 
-
                 for comment in post['comments_full']:
                     comment_id = comment['comment_id']
                     name_surname = comment.get('commenter_name')
@@ -437,13 +478,22 @@ class FacebookStorer:
                     link = comment['commenter_url']
                     comment_time = comment['comment_time']
                     commentor_id = re.match(reg_identifier, link).group(1)
-                    comment_reactions = comment.get('comment_reaction_count', 0)
-                    #text = comment['comment_text']
+                    num_reacts = comment.get('comment_reaction_count', 0)
+                    if num_reacts is None: num_reacts = 0
+                    num_replies = len(comment.get('replies', []))
                     #ALSO STORE REPLIES
                     new_users.append({
                         'user_id': commentor_id,
                         'name': name,
                         'surname': surname
+                    })
+                    post_comments.append({
+                        'comment_id': comment_id,
+                        'post_id': post_id,
+                        'create_time': comment_time,
+                        'user_id': commentor_id,
+                        'num_reacts': num_reacts,
+                        'num_replies': num_replies
                     })
             except TemporarilyBanned as e:
                 print(f'Temporarily banned')
@@ -458,7 +508,6 @@ class FacebookStorer:
         else:
             print('No new posts to insert')
 
-
         if len(new_users):
             rows = self.store_simple_user(new_users)
             print(f'{len(rows)} rows of new users inserted')
@@ -467,7 +516,7 @@ class FacebookStorer:
 
         if len(post_reacts):
             rows = self.store_react(post_reacts)
-            print(f'{len(params_eng)} rows of reacts inserted')
+            print(f'{len(rows)} rows of reacts inserted')
         else:
             print('No post reacts to insert')
 
@@ -476,6 +525,12 @@ class FacebookStorer:
             print(f'{len(params_eng)} rows of engagement data inserted')
         else:
             print('No engagameent data to insert')
+
+        if len(post_comments):
+            self.store_post_comment(post_comments)
+            print(f'{len(post_comments)} rows of post comments inserted')
+        else:
+            print('No post comments to insert')
 
 
 if __name__ == '__main__':
@@ -487,7 +542,7 @@ if __name__ == '__main__':
 
     print('storing posts')
     #fb.store_posts(page_name, 10)
-    fb.store_posts(page_name, 2)
+    fb.store_posts(page_name, 5)
     breakpoint()
 
     api = MyGraphAPI() 
