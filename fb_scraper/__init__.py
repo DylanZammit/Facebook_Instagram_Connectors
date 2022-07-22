@@ -107,6 +107,41 @@ class FacebookStorer:
                 rsleep(self.throttle, q=False)
             self.store_react(user_id, post_id, react_type)
 
+    def store_post_shares(self, info):
+        
+        insert_query = """
+            INSERT INTO post_shares VALUE (%s, %s, %s)
+        """
+
+        scrape_date = datetime.now().date().strftime('%Y-%m-%d')
+        rows = []
+        if isinstance(info, dict):
+            info = [info]
+        elif not isinstance(info, list):
+            print('must pass list of dicts or single dict')
+        # memory inefficient for large db
+        exists = self.conn.execute('SELECT user_id, post_id FROM post_shares')
+
+        for sharer in info:
+            sharer_id = sharer['sharer_id']
+            post_id = sharer['post_id']
+            if len(exists[(exists.user_id==sharer_id)&(exists.post_id==post_id)]):
+                print(f'{sharer_id} for post {post_id} already exists')
+                continue
+
+            print(f'storing {user_id} for post={post_id}')
+
+            row = (
+                scrape_date,
+                post_id,
+                sharer_id,
+            )
+            rows.append(row)
+
+        rows = list(set(rows))
+        self.conn.insert(insert_query, rows)
+        return rows
+
     def store_post_comment(self, info):
         exists_query = """
             SELECT 1 FROM post_comments WHERE comment_id='{}' LIMIT 1
@@ -123,10 +158,10 @@ class FacebookStorer:
         elif not isinstance(info, list):
             print('must pass list of dicts or single dict')
         # memory inefficient for large db 
-        exists = self.conn.execute('SELECT comment_id FROM post_comments').values
+        exists = self.conn.execute('SELECT comment_id FROM post_comments').values.squeeze()
 
         for comment in info:
-            comment_id = comment['comment_id']
+            comment_id = int(comment['comment_id'])
             if comment_id in exists: 
                 print(f'{comment_id} already exists')
                 continue
@@ -392,6 +427,7 @@ class FacebookStorer:
         new_users = []
         posts_fixed = []
         post_comments = []
+        post_shares = []
         for i, post in enumerate(posts):
             try:
                 if i >= num_posts: break
@@ -422,6 +458,15 @@ class FacebookStorer:
                     name, surname = name_surname.split()[0], ' '.join(name_surname.split()[1:])
                     link = sharer['link']
                     sharer_id = re.match(reg_identifier, link).group(1)
+                    post_shares.append({
+                        'sharer_id': sharer_id, 
+                        'post_id': post_id
+                    })
+                    new_users.append({
+                        'user_id': sharer_id, 
+                        'name': name, 
+                        'surname': surname
+                    })
 
                 reactions = post['reactions']
                 if reactions is None: reactions = {}
@@ -455,13 +500,15 @@ class FacebookStorer:
                     react_str = reactor.get('type')
                     if react_str is None:
                         print(f'None type react for {name_surname}')
-                        continue
+                        react_type = None
+                    else:
+                        react_str = react_str.upper()
+                        react_type = react2id.get(react_str)
 
-                    react_str = react_str.upper()
-                    react_type = react2id.get(react_str)
-                    if react_type is None:
-                        print(f'Treating special react {react_str} by {name_surname} as LIKE')
-                        react_type = react2id.get('LIKE')
+                        if react_type is None:
+                            print(f'Treating special react {react_str} by {name_surname} as LIKE')
+                            react_type = react2id.get('LIKE')
+
                     link = reactor['link']
                     reactor_id = re.match(reg_identifier, link).group(1)
                     post_reacts.append((reactor_id, post_id, react_type))
@@ -532,6 +579,12 @@ class FacebookStorer:
         else:
             print('No post comments to insert')
 
+        if len(post_shares):
+            rows = self.store_post_shares(post_shares)
+            print(f'{len(rows)} rows of post shares inserted')
+        else:
+            print('No post shares to insert')
+
 
 if __name__ == '__main__':
 
@@ -541,8 +594,7 @@ if __name__ == '__main__':
     fb = FacebookStorer(cookies)
 
     print('storing posts')
-    #fb.store_posts(page_name, 10)
-    fb.store_posts(page_name, 5)
+    fb.store_posts(page_name, 10)
     breakpoint()
 
     api = MyGraphAPI() 
