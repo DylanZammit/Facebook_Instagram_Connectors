@@ -208,9 +208,19 @@ class Storage:
 
     def _store_react(self, reacts):
         df = self.conn.execute('SELECT post_id, user_id FROM post_reacts')
+        user_ids = self.conn.execute('SELECT user_id, text_id FROM users')
         rows = []
         for react in reacts:
-            exists = len(df[(df.post_id==react.post_id)&(df.user_id==react.user_id)])
+            if react.user_id.isdecimal():
+                other_id = user_ids[user_ids.user_id==react.user_id].text_id
+            else:
+                other_id = user_ids[user_ids.text_id==react.user_id].user_id
+            if len(other_id) == 0:
+                cond_id = (df.user_id==react.user_id)
+            else:
+                cond_id = ((df.user_id==react.user_id)|(df.user_id==other_id.iloc[0]))
+
+            exists = len(df[(df.post_id==react.post_id)&cond_id])
             if not exists:
                 rows.append((
                     self.scrape_date,
