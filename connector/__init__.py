@@ -41,17 +41,17 @@ class MySQLConnector:
         df = pd.DataFrame(df, columns=columns)
         return df
 
-    def insert(self, query, params=None):
-        if params is None: params = ()
-        assert 'insert' in query.lower()
+    def insert(self, table, params):
+        if len(params) == 0 or params is None: return
+        if isinstance(params, tuple):
+            params = [params]
+        n_params = len(params[0])
+        query_vals = ('%s,'*n_params)[:-1]
+        query = 'INSERT INTO {} VALUES ({})'.format(table, query_vals)
 
         with mysql.connector.connect(**self.kwargs) as conn:
             with conn.cursor() as cursor:
-                if isinstance(params, tuple):
-                    execute = cursor.execute
-                elif isinstance(params, list):
-                    execute = cursor.executemany
-                execute(query, params)
+                cursor.executemany(query, params)
             conn.commit()
 
 
