@@ -51,7 +51,7 @@ class Storage:
 
     def __init__(self):
         self.conn = MySQLConnector(os.environ.get('SOCIAL_CONN'))
-        self.scrape_date = datetime.now().date().strftime('%Y-%m-%d')
+        self.scrape_date = datetime.now().date()
 
     def store(self, obj):
         '''
@@ -70,7 +70,7 @@ class Storage:
         otype = type(rep).__name__.lower()
         f = getattr(self, '_store_{}'.format(otype))
         rows = f(obj)
-        print(f'{len(rows)} of {otype} inserted')
+        print(f'{len(rows)} {otype}s inserted')
 
     def _store_page_fixed(self, pages):
         df = self.conn.execute('SELECT page_id FROM pages')
@@ -107,8 +107,10 @@ class Storage:
         rows_eng = self._store_page_engagement(pages)
 
         for page in pages:
-            self.store(page.posts)
             self.store(page.users)
+
+        for page in pages:
+            self.store(page.posts)
 
         return rows_fixed + rows_eng
 
@@ -167,18 +169,39 @@ class Storage:
         return rows_fixed + rows_eng
 
     def _store_user(self, users):
-        df = self.conn.execute('SELECT user_id FROM users')
+        df = self.conn.execute('SELECT * FROM users')
         rows = []
         for user in users:
             user_id = user.user_id
-            exists = user_id in df.user_id.values
+            name = user.name
+            surname = user.surname
+            gender = user.gender
+            
+            if user_id.isdecimal():
+                text_id = None
+                exists = user_id in df.user_id.values
+                column = 'user_id'
+                new_id = user_id
+            else:
+                text_id = user_id
+                user_id = None
+                exists = text_id in df.text_id.values
+                column = 'text_id'
+                new_id = text_id
+
             if not exists:
-                rows.append((
-                    user_id, 
-                    user.name, 
-                    user.surname, 
-                    user.gender
-                ))
+                if name not in df.name.values and surname not in df.surname.values:
+                    rows.append((
+                        user_id, 
+                        text_id,
+                        name, 
+                        surname, 
+                        gender
+                    ))
+                else:
+                    update_row = f"UPDATE users SET {column}='{new_id}' WHERE name='{name}' AND surname='{surname}';"
+                    self.conn.run_query(update_row)
+
         rows = list(set(rows))
         self.conn.insert('users', rows)
         return rows
@@ -490,7 +513,7 @@ def main():
     set_user_agent(user_agent)
 
     start_date = datetime.now().date()
-    start_date = pd.Timestamp('2022-07-24 13:30:00')
+    start_date = pd.Timestamp('2022-07-24 20:00:00')
     page = Page(page_name)
     page.get_details()
     page.get_page_posts(start_date=start_date)

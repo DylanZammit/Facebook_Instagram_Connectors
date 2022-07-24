@@ -41,6 +41,12 @@ class MySQLConnector:
         df = pd.DataFrame(df, columns=columns)
         return df
 
+    def run_query(self, query):
+        with mysql.connector.connect(**self.kwargs) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(query)
+            conn.commit()
+
     def insert(self, table, params):
         if len(params) == 0 or params is None: return
         if isinstance(params, tuple):
@@ -56,7 +62,9 @@ class MySQLConnector:
 
 
 if __name__ == '__main__':
-    conn = MySQLConnector()
+    import os
+    conn = MySQLConnector(os.environ.get('SOCIAL_CONN'))
     df = conn.execute('select * from pages')
     print(df)
+    breakpoint()
 
