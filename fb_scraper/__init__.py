@@ -247,25 +247,25 @@ class Page:
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-    def get_page_posts(self, num_posts=np.inf, start_date=None, commenters=True, sharers=True, reactors=True):
+    def get_page_posts(self, num_posts=np.inf, start_date=None, get_commenters=True, get_sharers=True, get_reactors=True):
         if start_date is None: start_date = pd.Timestamp('2000-01-01')
 
         options = {
-            'comments': commenters,
-            'sharers': sharers, 
-            'reactors': reactors,
+            'comments': get_commenters,
+            'sharers': get_sharers, 
+            'reactors': get_reactors,
             'posts_per_page': 20
         }
 
         posts = get_posts(self.page_id, options=options)
         
-        post_reacts = []
-        post_shares = []
-        post_comments = []
 
         page_posts = []
         users = []
         for i, post in enumerate(posts):
+            post_reacts = []
+            post_shares = []
+            post_comments = []
 
             if i > 0: rsleep(10, 10, q=False)
             post_details = {}
@@ -296,7 +296,7 @@ class Page:
                 num_reacts = post.get('reaction_count', 0)
                 if num_reacts is None: num_reacts = 0
 
-                if sharers:
+                if get_sharers:
                     for sharer in post['sharers']:
                         name, surname = extract_namesurname(sharer['name'])
                         user_id = extract_id(sharer['link'])
@@ -315,7 +315,7 @@ class Page:
                         users.append(user)
                         post_shares.append(share)
 
-                if reactors:
+                if get_reactors:
                     reactors = post['reactors']
                     if reactors == None: reactors = []
                     for reactor in reactors:
@@ -350,7 +350,7 @@ class Page:
                         users.append(user)
                         post_reacts.append(react)
 
-                if commenters:
+                if get_commenters:
                     for comment in post['comments_full']:
                         comment_time = comment['comment_time']
                         comment_id = comment['comment_id']
