@@ -12,6 +12,7 @@ from random_user_agent.user_agent import UserAgent
 from random_user_agent.params import SoftwareName, OperatingSystem
 from IPython import embed
 from fb_api import MyGraphAPI
+from datetime import timedelta, datetime
 
 d = getgender.Detector(case_sensitive=False)
 reg_identifier = r'^(?:.*)\/(?:pages\/[A-Za-z0-9-]+\/)?(?:profile\.php\?id=)?([A-Za-z0-9.]+)'
@@ -172,35 +173,95 @@ class Storage:
         df = self.conn.execute('SELECT * FROM users')
         rows = []
         for user in users:
-            user_id = user.user_id
-            name = user.name
-            surname = user.surname
-            gender = user.gender
-            
-            if user_id.isdecimal():
-                text_id = None
-                exists = user_id in df.user_id.values
-                column = 'user_id'
-                new_id = user_id
-            else:
-                text_id = user_id
-                user_id = None
-                exists = text_id in df.text_id.values
-                column = 'text_id'
-                new_id = text_id
-
-            if not exists:
-                if name not in df.name.values and surname not in df.surname.values:
-                    rows.append((
-                        user_id, 
-                        text_id,
-                        name, 
-                        surname, 
-                        gender
-                    ))
+            try:
+                user_id = user.user_id
+                name = user.name.replace("'", "").replace("\"", "")
+                surname = user.surname.replace("'", "").replace("\"", "")
+                gender = user.gender
+                
+                # 1) check if numeric or username
+                # 2) check if id exists in db
+                if user_id.isdecimal():
+                    text_id = None
+                    exists = int(user_id) in df.user_id.values
+                    column = 'user_id'
+                    new_id = user_id
                 else:
-                    update_row = f"UPDATE users SET {column}='{new_id}' WHERE name='{name}' AND surname='{surname}';"
-                    self.conn.run_query(update_row)
+                    text_id = user_id
+                    user_id = None
+                    exists = text_id in df.text_id.values
+                    column = 'text_id'
+                    new_id = text_id
+
+                if not exists:
+                    # if the name/surname combination does not exists, then it must be a new user
+                    name_surname_combinations = df[(df.name==name)&(df.surname==surname)]
+                    num_dups = len(name_surname_combinations)
+                    if not num_dups:
+                        rows.append((
+                            user_id,
+                            text_id,
+                            name, 
+                            surname, 
+                            gender
+                        ))
+                    else:
+                        print(f'Found {num_dups} instances of {name}, {surname}.')
+                        # if we have text_id: get numeric_id
+                        if user_id is None: 
+                            print(f'Reading profile {text_id}')
+                            user_id = get_profile(text_id, allow_extra_requests=False).get('id')
+                            # if numeric_id exists, just update that row
+                            # otherwise, neither numeric, nor username is in the db, then it must be a new user
+                            if int(user_id) in df.user_id.values:
+                                update_row = f"""
+                                    UPDATE users SET {column}='{new_id}' WHERE user_id='{user_id}';
+                                """
+                                print(f'Setting text_id={new_id} to {user_id}')
+                                self.conn.run_query(update_row)
+                            else:
+                                rows.append((
+                                    user_id, 
+                                    text_id,
+                                    name, 
+                                    surname, 
+                                    gender
+                                ))
+                        else:
+
+                            # for each duplicate name, surname, convert text_id to user_id and update
+                            # If new_user_id matches any one of them, set found=true and do nothing
+                            # If not found, must be a new user
+                            found = False
+                            meeseeks = df[(df.name==name)&(df.surname==surname)&(df.user_id.isna())].text_id
+                            for dup_text_id in meeseeks:
+                                print(f'Reading profile {dup_text_id}')
+                                dup_user_id = get_profile(dup_text_id, allow_extra_requests=False).get('id')
+                                if int(dup_user_id) == int(user_id):
+                                    found = True
+
+                                update_row = f"""
+                                    UPDATE users SET user_id='{dup_user_id}' WHERE text_id='{dup_text_id}';
+                                """
+                                print(f'Setting user_id={dup_user_id} to {dup_text_id}')
+                                self.conn.run_query(update_row)
+
+                            if not found:
+                                rows.append((
+                                    user_id, 
+                                    text_id,
+                                    name, 
+                                    surname, 
+                                    gender
+                                ))
+                else:
+                    print(f'User {new_id} already exists')
+            except TemporarilyBanned as e:
+                print(f'Temporarily banned, cannot store {new_id} to DB')
+            except Exception as e:
+                print(e)
+                breakpoint()
+
 
         rows = list(set(rows))
         self.conn.insert('users', rows)
@@ -280,8 +341,8 @@ class Page:
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-    def get_page_posts(self, num_posts=np.inf, start_date=None, get_commenters=True, get_sharers=True, get_reactors=True):
-        if start_date is None: start_date = pd.Timestamp('2000-01-01')
+    def get_page_posts(self, num_posts=np.inf, latest_date=None, get_commenters=True, get_sharers=True, get_reactors=True):
+        if latest_date is None: latest_date = pd.Timestamp('2000-01-01')
 
         options = {
             'comments': get_commenters,
@@ -291,6 +352,7 @@ class Page:
         }
 
         posts = get_posts(self.page_id, options=options)
+        #posts = get_posts(self.page_id, options=options, latest_date=latest_date)
         
 
         page_posts = []
@@ -306,7 +368,7 @@ class Page:
             try:
                 post_time = post['time']
                 if i >= num_posts: break
-                if pd.Timestamp(post_time) < start_date: break
+                if pd.Timestamp(post_time) < latest_date: break
 
                 post_id = post['post_id']
                 print(f'{i+1}) Post={post_id} on {post_time}')
@@ -356,7 +418,7 @@ class Page:
                         react_str = reactor.get('type')
 
                         if react_str is None:
-                            print(f'None type react for {name_surname}')
+                            print(f'None type react for {name, surname}')
                             react_type = None
                         else:
                             react_str = react_str.upper()
@@ -522,11 +584,11 @@ def main():
 
     set_user_agent(user_agent)
 
-    start_date = datetime.now().date()
-    start_date = pd.Timestamp('2022-07-24 20:00:00')
+    latest_date = datetime.now().date() - timedelta(hours=6)
+    #latest_date = datetime.now().date() + timedelta(days=1) - timedelta(hours=6)
     page = Page(page_name)
     page.get_details()
-    page.get_page_posts(start_date=start_date)
+    page.get_page_posts(latest_date=latest_date)
 
     store = Storage()
     store.store(page)
