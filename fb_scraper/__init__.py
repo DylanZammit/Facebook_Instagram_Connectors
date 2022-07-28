@@ -13,6 +13,7 @@ from random_user_agent.params import SoftwareName, OperatingSystem
 from IPython import embed
 from fb_api import MyGraphAPI
 from datetime import timedelta, datetime
+from mysql.connector.errors import IntegrityError
 
 d = getgender.Detector(case_sensitive=False)
 reg_identifier = r'^(?:.*)\/(?:pages\/[A-Za-z0-9-]+\/)?(?:profile\.php\?id=)?([A-Za-z0-9.]+)'
@@ -53,6 +54,7 @@ class Storage:
     def __init__(self):
         self.conn = MySQLConnector(os.environ.get('SOCIAL_CONN'))
         self.scrape_date = datetime.now().date()
+        self.last_profile_call = pd.Timestamp('2000-01-01')
 
     def store(self, obj):
         '''
@@ -210,6 +212,10 @@ class Storage:
                         # if we have text_id: get numeric_id
                         if user_id is None: 
                             print(f'Reading profile {text_id}')
+                            if self.last_profile_call > datetime.now() - timedelta(seconds=5):
+                                rsleep(5, 5, q=False)
+                                self.last_profile_call = datetime.now()
+
                             user_id = get_profile(text_id, allow_extra_requests=False).get('id')
                             # if numeric_id exists, just update that row
                             # otherwise, neither numeric, nor username is in the db, then it must be a new user
@@ -236,6 +242,9 @@ class Storage:
                             meeseeks = df[(df.name==name)&(df.surname==surname)&(df.user_id.isna())].text_id
                             for dup_text_id in meeseeks:
                                 print(f'Reading profile {dup_text_id}')
+                                if self.last_profile_call > datetime.now() - timedelta(seconds=5):
+                                    rsleep(5, 5, q=5)
+                                    self.last_profile_call = datetime.now()
                                 dup_user_id = get_profile(dup_text_id, allow_extra_requests=False).get('id')
                                 if int(dup_user_id) == int(user_id):
                                     found = True
@@ -261,11 +270,25 @@ class Storage:
             except Exception as e:
                 print(e)
                 breakpoint()
+                pass
 
+        # convert to dataframe
+        # sort by dup key: try to remove dups with non-nans
+        X = pd.DataFrame(rows, columns='user_id text_id name surname gender'.split())
+        X = X.sort_values('user_id')
+        Y = X[(~X.duplicated('user_id'))|(X['user_id'].isnull())]
+        Y = Y.sort_values('text_id')
+        Z = Y[(~Y.duplicated('text_id'))|(Y['text_id'].isnull())]
+        rows_deduped = [tuple(row) for row in Z.to_records(index=False)]
+        #rows = list(set(rows)) # old method. can break
+        try:
+            self.conn.insert('users', rows_deduped)
+        except IntegrityError as e:
+            print(e)
+            breakpoint()
+            pass
 
-        rows = list(set(rows))
-        self.conn.insert('users', rows)
-        return rows
+        return rows_deduped
 
     def _store_react(self, reacts):
         df = self.conn.execute('SELECT post_id, user_id FROM post_reacts')
@@ -316,6 +339,7 @@ class Storage:
         for comment in comments:
             exists = comment.comment_id in df.comment_id.values
             if not exists:
+                self.store(comment.replies)
                 rows.append((
                     comment.comment_id,
                     self.scrape_date,
@@ -330,6 +354,24 @@ class Storage:
         self.conn.insert('post_comments', rows)
         return rows
 
+    def _store_reply(self, replies):
+        df = self.conn.execute('SELECT reply_id FROM comment_replies')
+        rows = []
+        for reply in replies:
+            exists = reply.reply_id in df.reply_id.values
+            if not exists:
+                rows.append((
+                    reply.reply_id,
+                    self.scrape_date,
+                    reply.parent_id,
+                    reply.create_time,
+                    reply.user_id,
+                    reply.num_reacts,
+                ))
+
+        rows = list(set(rows))
+        self.conn.insert('comment_replies', rows)
+        return rows
 
 class Page:
 
@@ -340,6 +382,44 @@ class Page:
         self.num_likes = None
         for k, v in kwargs.items():
             setattr(self, k, v)
+
+
+    def parse_replies(self, replies, parent_id):
+        users = []
+        comment_replies = []
+        for reply in replies:
+            comment_id = reply['comment_id']
+            comment_time = reply['comment_time']
+            commenter_id = reply['commenter_id']
+            num_reacts = reply.get('comment_reaction_count', 0)
+            if num_reacts is None: num_reacts = 0
+            name, surname = extract_namesurname(reply.get('commenter_name'))
+            user_id = extract_id(reply['commenter_url'])
+            if not user_id.isdecimal() and commenter_id is not None:
+                text_id = user_id
+                user_id = commenter_id
+            else:
+                text_id = None
+
+            user = User(
+                user_id=user_id, 
+                text_id=text_id,
+                name=name, 
+                surname=surname
+            )
+            
+            comment_reply = Reply(
+                reply_id=comment_id,
+                parent_id=parent_id,
+                create_time=comment_time,
+                user_id=user_id,
+                num_reacts=num_reacts,
+            )
+
+            users.append(user)
+            comment_replies.append(comment_reply)
+
+        return users, comment_replies
 
     def get_page_posts(self, num_posts=np.inf, latest_date=None, get_commenters=True, get_sharers=True, get_reactors=True):
         if latest_date is None: latest_date = pd.Timestamp('2000-01-01')
@@ -449,20 +529,32 @@ class Page:
                     for comment in post['comments_full']:
                         comment_time = comment['comment_time']
                         comment_id = comment['comment_id']
+                        commenter_id = comment.get('commenter_id')
                         name, surname = extract_namesurname(comment.get('commenter_name'))
                         user_id = extract_id(comment['commenter_url'])
+                        if not user_id.isdecimal() and commenter_id is not None:
+                            text_id = user_id
+                            user_id = commenter_id
+                        else:
+                            text_id = None
                         num_reacts = comment.get('comment_reaction_count', 0)
                         if num_reacts is None: num_reacts = 0
-                        num_replies = len(comment.get('replies', []))
-                        #ALSO STORE REPLIES
+                        replies = comment.get('replies', [])
+                        num_replies = len(replies)
+
+                        reply_users, comment_replies = self.parse_replies(replies, comment_id)
+
+                        users += reply_users
                         user = User(
                             user_id=user_id, 
+                            text_id=text_id,
                             name=name, 
                             surname=surname
                         )
                         
                         post_comment = Comment(
                             comment_id=comment_id,
+                            replies=comment_replies,
                             post_id=post_id,
                             create_time=comment_time,
                             user_id=user_id,
@@ -550,6 +642,15 @@ class Comment:
     
     def __init__(self, comment_id, **kwargs):
         self.comment_id = int(comment_id)
+        self.replies = []
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+class Reply:
+    
+    def __init__(self, reply_id, parent_id, **kwargs):
+        self.reply_id = int(reply_id)
+        self.parent_id = int(parent_id)
         for k, v in kwargs.items():
             setattr(self, k, v)
 
@@ -584,8 +685,7 @@ def main():
 
     set_user_agent(user_agent)
 
-    latest_date = datetime.now().date() - timedelta(hours=6)
-    #latest_date = datetime.now().date() + timedelta(days=1) - timedelta(hours=6)
+    latest_date = datetime.now() - timedelta(hours=2)
     page = Page(page_name)
     page.get_details()
     page.get_page_posts(latest_date=latest_date)
