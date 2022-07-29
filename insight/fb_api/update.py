@@ -98,5 +98,4 @@ class PageExtractor:
 if __name__ == '__main__':
     page_name = 'levelupmalta'
     extractor = PageExtractor(page_name)
-    extractor = extractor.pages(0).page_engagement().post_fixed()
-    extractor.store()
+    extractor.pages(0).page_engagement().post_fixed().store()
