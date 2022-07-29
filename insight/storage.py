@@ -4,7 +4,7 @@ from connector import MySQLConnector
 import pandas as pd
 from datetime import timedelta, datetime
 from mysql.connector.errors import IntegrityError
-from utils import *
+from insight.utils import *
 
 class Storage:
 

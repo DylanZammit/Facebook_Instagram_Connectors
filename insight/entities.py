@@ -11,7 +11,7 @@ from IPython import embed
 from fb_api import MyGraphAPI
 from datetime import timedelta, datetime
 from mysql.connector.errors import IntegrityError
-from utils import *
+from insight.utils import *
 
 
 class Page:
@@ -20,6 +20,7 @@ class Page:
         self.posts = []
         self.users = []
         self.page_id = page_id
+        self.is_competitor = 1
         self.num_likes = None
         for k, v in kwargs.items():
             setattr(self, k, v)
