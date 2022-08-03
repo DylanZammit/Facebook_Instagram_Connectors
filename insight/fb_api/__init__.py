@@ -1,4 +1,5 @@
 from pyfacebook import GraphAPI
+from pprint import pprint
 import yaml
 import os
 
@@ -35,7 +36,15 @@ class MyGraphAPI(GraphAPI):
             version=version
         )
 
+    # TODO: save to yaml
+    def populate_tokens(self, pages):
+        lat = self.exchange_long_lived_user_access_token()['access_token']
+        page_tokens = {page: self.exchange_page_access_token(page, lat) for page in pages}
+        print(lat)
+        pprint(page_tokens)
+
 if __name__ == '__main__':
     from IPython import embed
     api = MyGraphAPI()
+    api.populate_tokens(['levelupmalta'])
     embed()
