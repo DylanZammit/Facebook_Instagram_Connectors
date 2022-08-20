@@ -329,3 +329,114 @@ class Storage:
         rows = list(set(rows))
         self.conn.insert('comment_replies', rows)
         return rows
+
+
+class InstaStorage:
+
+    def __init__(self):
+        self.conn = MySQLConnector(os.environ.get('SOCIAL_CONN'))
+        self.scrape_date = datetime.now().date()
+        self.last_profile_call = pd.Timestamp('2000-01-01')
+
+    def store(self, obj):
+        '''
+        Can pass insta objects.
+        If a list is passed, all items must be of the same object type
+        '''
+        if isinstance(obj, list):
+            if len(obj) == 0: 
+                print('Empty list passed')
+                return
+            rep = obj[0]
+        else:
+            rep = obj
+            obj = [obj]
+
+        otype = type(rep).__name__.lower()
+        f = getattr(self, '_store_{}'.format(otype))
+        rows = f(obj)
+        print(f'{len(rows)} {otype}s inserted')
+
+    def _store_page_fixed(self, pages):
+        df = self.conn.execute('SELECT page_id FROM insta_pages')
+        rows = []
+        for page in pages:
+            page_id = page.page_id
+            exists = page_id in df.page_id.values
+            if not exists:
+                rows.append((page_id, page.username, 1))
+
+        self.conn.insert('insta_pages', rows)
+        return rows
+
+    def _store_page_engagement(self, pages):
+        df = self.conn.execute('SELECT page_id, scrape_date FROM insta_page_engagement')
+
+        rows = []
+        for page in pages:
+            page_id = page.page_id
+            exists = len(df[(df.scrape_date==self.scrape_date)&(df.page_id==page_id)])
+
+            if not exists:
+                rows.append((page_id, self.scrape_date, page.num_followers, page.num_following, page.num_media))
+            else:
+                print(f'{page_id}@{self.scrape_date} already exists')
+
+        rows = list(set(rows))
+        self.conn.insert('insta_page_engagement', rows)
+        return rows
+
+    def _store_page(self, pages):
+        for page in pages:
+            rows_fixed = self._store_page_fixed(pages)
+            rows_eng = self._store_page_engagement(pages)
+
+            if hasattr(page, 'medias'):
+                self.store(page.medias)
+
+        return rows_fixed + rows_eng
+
+    def _store_media_fixed(self, medias):
+        df = self.conn.execute('SELECT media_id FROM insta_media_fixed')
+        rows = []
+        for media in medias:
+            media_id = int(media.pk)
+            page_id = int(media.id.split('_')[1])
+            exists = media_id in df.media_id.values
+            if not exists:
+                rows.append((
+                        media_id,
+                        media.code,
+                        page_id,
+                        media.taken_at,
+                        media.media_type
+                    ))
+        rows = list(set(rows))
+        self.conn.insert('insta_media_fixed', rows)
+        return rows
+
+    def _store_media_engagement(self, medias):
+        
+        df = self.conn.execute('SELECT media_id, scrape_date FROM insta_media_engagement')
+        rows = []
+        for media in medias:
+            media_id = int(media.pk)
+            
+            exists = len(df[(df.media_id==media_id)&(df.scrape_date==self.scrape_date)])
+            if not exists:
+                rows.append((
+                    media_id,
+                    self.scrape_date,
+                    media.comment_count,
+                    media.like_count,
+                    media.view_count,
+                ))
+
+        rows = list(set(rows))
+        self.conn.insert('insta_media_engagement', rows)
+        return rows
+
+    def _store_media(self, medias):
+        rows_fixed = self._store_media_fixed(medias)
+        rows_eng = self._store_media_engagement(medias)
+        return rows_fixed + rows_eng
