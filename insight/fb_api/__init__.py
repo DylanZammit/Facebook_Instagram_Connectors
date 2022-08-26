@@ -39,8 +39,8 @@ class MyGraphAPI(GraphAPI):
     # TODO: save to yaml
     def populate_tokens(self, pages):
         lat = self.exchange_long_lived_user_access_token()['access_token']
-        page_tokens = {page: self.exchange_page_access_token(page, lat) for page in pages}
         print(lat)
+        page_tokens = {page: self.exchange_page_access_token(page, lat) for page in pages}
         pprint(page_tokens)
 
 if __name__ == '__main__':

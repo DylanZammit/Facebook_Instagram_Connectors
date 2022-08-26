@@ -1,11 +1,14 @@
 from fb_api import MyGraphAPI
 import matplotlib.pyplot as plt
 import pandas as pd
+from datetime import datetime, timedelta
 from connector import MySQLConnector
 from IPython import embed
 import os
 from insight.entities import *
 from insight.storage import Storage
+import requests
+import json
 
 
 class PageExtractor:
@@ -27,10 +30,27 @@ class PageExtractor:
         return self
 
     def page_engagement(self):
+        # +1 day for API for some reason
+        today = str(datetime.now().date() + timedelta(days=1))
+        params = {
+            'period': 'day',
+            'access_token': self.api.access_token,
+            'since': today,
+            'until': today
+        }
+        url = 'https://graph.facebook.com/levelupmalta/insights?metric=page_views_total,page_engaged_users,page_impressions,page_impressions_unique'
+
+        res = requests.get(url, params=params)
+        metrics = json.loads(res.text)['data']
+        for metric in metrics:
+            assert len(metric['values'])==1
+            setattr(self.page, metric['name'], metric['values'][0]['value'])
+
         fields = 'id,fan_count'
         res = self.api.get_object(self.page.page_id, fields=fields)
 
         self.page.num_likes = res['fan_count']
+
         return self
 
     def post_comments(self):
@@ -98,4 +118,5 @@ class PageExtractor:
 if __name__ == '__main__':
     page_name = 'levelupmalta'
     extractor = PageExtractor(page_name)
-    extractor.pages(0).page_engagement().post_fixed().store()
+    extractor.pages(0).page_engagement().store()
+    #extractor.pages(0).page_engagement().post_fixed().store()

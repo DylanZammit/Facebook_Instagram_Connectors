@@ -50,14 +50,21 @@ class Storage:
         rows = []
         for page in pages:
             page_id = page.page_id
+
             exists = len(df[(df.scrape_date==self.scrape_date)&(df.page_id==page_id)])
 
             if not exists and page.num_likes is not None:
-                rows.append((page_id, self.scrape_date, page.num_likes))
+                rows.append((page_id, self.scrape_date, page.num_likes, 
+                             getattr(page, 'page_views_total'),
+                             getattr(page, 'page_engaged_users'),
+                             getattr(page, 'page_impressions'),
+                             getattr(page, 'page_impressions_unique'),
+                            ))
             elif page.num_likes is None:
                 print(f'{page_id} number of likes is None')
             else:
                 print(f'{page_id}@{self.scrape_date} already exists')
+
         rows = list(set(rows))
         self.conn.insert('page_engagement', rows)
         return rows
