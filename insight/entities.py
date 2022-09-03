@@ -8,7 +8,7 @@ import os
 from connector import MySQLConnector
 import pandas as pd
 from IPython import embed
-from fb_api import MyGraphAPI
+from insight.fb_api import MyGraphAPI
 from datetime import timedelta, datetime
 from mysql.connector.errors import IntegrityError
 from insight.utils import *
