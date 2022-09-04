@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
-from distutils.core import setup
+from setuptools import setup, find_packages
 
-setup(name='Distutils',
-      version='0.0.8',
-      description='Python Distribution Utilities',
+setup(name='insight',
+      version='0.0.9',
+      description='insight tools',
       author='dylan zammit',
       author_email='dylanzam@gmail.com',
-      packages=['connector', 'insight']
+      packages=find_packages()
      )
