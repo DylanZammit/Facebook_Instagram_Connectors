@@ -55,10 +55,10 @@ class Storage:
 
             if not exists and page.num_likes is not None:
                 rows.append((page_id, self.scrape_date, page.num_likes, 
-                             getattr(page, 'page_views_total'),
-                             getattr(page, 'page_engaged_users'),
-                             getattr(page, 'page_impressions'),
-                             getattr(page, 'page_impressions_unique'),
+                             getattr(page, 'page_views_total', None),
+                             getattr(page, 'page_engaged_users', None),
+                             getattr(page, 'page_impressions', None),
+                             getattr(page, 'page_impressions_unique', None),
                             ))
             elif page.num_likes is None:
                 print(f'{page_id} number of likes is None')
@@ -136,6 +136,59 @@ class Storage:
         return rows_fixed + rows_eng
 
     def _store_user(self, users):
+        df = self.conn.execute('SELECT * FROM users')
+        rows = []
+        for user in users:
+
+            user_id = user.user_id
+            name = user.name.replace("'", "").replace("\"", "")
+            surname = user.surname.replace("'", "").replace("\"", "")
+            gender = user.gender
+
+            if user_id.isdecimal():
+                text_id = None
+                exists = user_id in df.user_id.values
+                column = 'user_id'
+                new_id = user_id
+            else:
+                text_id = user_id
+                user_id = None
+                exists = text_id in df.text_id.values
+                column = 'text_id'
+                new_id = text_id
+
+            if not exists:
+                # in same row
+                if name not in df.name.values and surname not in df.surname.values:
+                    rows.append((
+                        user_id, 
+                        text_id,
+                        name, 
+                        surname, 
+                        gender
+                    ))
+            else:
+                update_row = f"UPDATE users SET {column}='{new_id}' WHERE name='{name}' AND surname='{surname}';"
+                self.conn.run_query(update_row)
+
+        # convert to dataframe
+        # sort by dup key: try to remove dups with non-nans
+        X = pd.DataFrame(rows, columns='user_id text_id name surname gender'.split())
+        X = X.sort_values('user_id')
+        Y = X[(~X.duplicated('user_id'))|(X['user_id'].isnull())]
+        Y = Y.sort_values('text_id')
+        Z = Y[(~Y.duplicated('text_id'))|(Y['text_id'].isnull())]
+        rows_deduped = [tuple(row) for row in Z.to_records(index=False)]
+        #rows = list(set(rows)) # old method. can break
+        try:
+            self.conn.insert('users', rows_deduped)
+        except IntegrityError as e:
+            print(e)
+            pass
+
+        return rows_deduped
+
+    def _store_user_DEDUPED(self, users):
         df = self.conn.execute('SELECT * FROM users')
         rows = []
         for user in users:
@@ -233,7 +286,6 @@ class Storage:
                 print(f'Temporarily banned, cannot store {new_id} to DB')
             except Exception as e:
                 print(e)
-                breakpoint()
                 pass
 
         # convert to dataframe

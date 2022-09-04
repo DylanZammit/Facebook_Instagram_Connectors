@@ -18,7 +18,7 @@ if __name__ == '__main__':
     set_cookies(cookies)
     set_user_agent(user_agent)
 
-    latest_date = datetime.now() - timedelta(hours=2)
+    latest_date = datetime.now() - timedelta(hours=1)
     page = Page(page_name)
     page.get_details()
     page.get_page_posts(latest_date=latest_date)
