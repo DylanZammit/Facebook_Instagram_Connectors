@@ -63,6 +63,7 @@ class PageExtractor:
         for api_post in api_posts:
             page_post_id = api_post['id']
             print(f'reading post {page_post_id}')
+            post_id = int(page_post_id.split('_')[1])
 
             react_field = ','.join(['reactions.type({}).limit(0).summary(1).as({})'.format(react, react) for react in self.react_types])
             fields = 'attachments,reactions.limit(0).summary(1).as(TOT),comments.summary(1),shares,created_time,message,permalink_url,' + react_field
@@ -99,7 +100,7 @@ class PageExtractor:
                 has_image=has_image,
                 has_text=has_text,
                 was_live=None,
-                post_id=page_post_id,
+                post_id=post_id,
                 post_time=create_time,
                 page_id=self.page.page_id
             )
