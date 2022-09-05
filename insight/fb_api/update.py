@@ -12,6 +12,7 @@ from insight.storage import Storage
 import requests
 import json
 
+post_metrics = """post_impressions,post_impressions_unique,post_impressions_paid,post_impressions_paid_unique,post_impressions_fan,post_impressions_fan_unique,post_impressions_fan_paid,post_impressions_fan_paid_unique,post_impressions_organic,post_impressions_organic_unique"""
 
 class PageExtractor:
 
@@ -104,6 +105,13 @@ class PageExtractor:
                 post_time=create_time,
                 page_id=self.page.page_id
             )
+
+            data = self.api.get_object(f'{page_post_id}/insights', metric=post_metrics)['data']
+            for metric in data:
+                name = metric['name']
+                value = metric['values'][0]['value']
+                setattr(post, name, value)
+
             self.page.posts.append(post)
 
         return self

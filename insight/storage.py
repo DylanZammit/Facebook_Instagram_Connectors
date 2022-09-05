@@ -121,6 +121,16 @@ class Storage:
                     post.num_wow,
                     post.num_sad,
                     post.num_angry,
+                    getattr(post, 'post_impressions', None),
+                    getattr(post, 'post_impressions_unique', None),
+                    getattr(post, 'post_impressions_paid', None),
+                    getattr(post, 'post_impressions_paid_unique', None),
+                    getattr(post, 'post_impressions_fan', None),
+                    getattr(post, 'post_impressions_fan_unique', None),
+                    getattr(post, 'post_impressions_fan_paid', None),
+                    getattr(post, 'post_impressions_fan_paid_unique', None),
+                    getattr(post, 'post_impressions_organic', None),
+                    getattr(post, 'post_impressions_organic_unique', None),
                 ))
 
             self.store(post.comments)
