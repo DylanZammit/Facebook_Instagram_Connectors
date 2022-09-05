@@ -159,7 +159,8 @@ class Storage:
 
             if not exists:
                 # in same row
-                if name not in df.name.values and surname not in df.surname.values:
+                #if name not in df.name.values and surname not in df.surname.values:
+                if len(df[(df.name==name)&(df.surname==surname)])==0:
                     rows.append((
                         user_id, 
                         text_id,
@@ -167,9 +168,9 @@ class Storage:
                         surname, 
                         gender
                     ))
-            else:
-                update_row = f"UPDATE users SET {column}='{new_id}' WHERE name='{name}' AND surname='{surname}';"
-                self.conn.run_query(update_row)
+                else:
+                    update_row = f"UPDATE users SET {column}='{new_id}' WHERE name='{name}' AND surname='{surname}';"
+                    self.conn.run_query(update_row)
 
         # convert to dataframe
         # sort by dup key: try to remove dups with non-nans
