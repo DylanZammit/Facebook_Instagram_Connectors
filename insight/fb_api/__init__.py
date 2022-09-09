@@ -24,7 +24,10 @@ class MyGraphAPI(GraphAPI):
         if page:
             access_token = tokens.get(f'{page}_access_token')
         else:
-            access_token = tokens.get('long_user_token')
+            access_token = tokens.get('long_user_token', None)
+            if access_token is None:
+                access_token = tokens.get('short_access_token', None)
+
 
         if not access_token:
             raise ValueError('No access token. If specifying page, make sure we have that page_access_token')

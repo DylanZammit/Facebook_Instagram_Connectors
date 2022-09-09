@@ -5,7 +5,6 @@ import numpy as np
 import time
 import re
 import os
-from connector import MySQLConnector
 import pandas as pd
 from IPython import embed
 from insight.fb_api import MyGraphAPI

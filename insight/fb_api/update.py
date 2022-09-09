@@ -4,7 +4,6 @@ from insight.fb_api import MyGraphAPI
 #import matplotlib.pyplot as plt
 import pandas as pd
 from datetime import datetime, timedelta
-from connector import MySQLConnector
 from IPython import embed
 import os
 from insight.entities import *
