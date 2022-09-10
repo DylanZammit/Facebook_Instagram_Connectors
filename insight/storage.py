@@ -92,10 +92,10 @@ class Storage:
                         post_id,
                         post.page_id,
                         post.post_time,
-                        post.has_text,
-                        post.has_video,
-                        post.has_image,
-                        post.was_live
+                        int(post.has_text),
+                        int(post.has_video),
+                        int(post.has_image),
+                        int(post.was_live)
                     ))
         rows = list(set(rows))
         self.conn.insert('post_fixed', rows)

@@ -62,8 +62,9 @@ class Page:
 
         return users, comment_replies
 
-    def get_page_posts(self, num_posts=np.inf, latest_date=None, get_commenters=True, get_sharers=True, get_reactors=True):
+    def get_page_posts(self, num_posts=None, latest_date=None, get_commenters=False, get_sharers=False, get_reactors=False):
         if latest_date is None: latest_date = pd.Timestamp('2000-01-01')
+        if num_posts is None: num_posts = np.inf
 
         options = {
             'comments': get_commenters,
@@ -73,8 +74,6 @@ class Page:
         }
 
         posts = get_posts(self.page_id, options=options)
-        #posts = get_posts(self.page_id, options=options, latest_date=latest_date)
-        
 
         page_posts = []
         users = []
