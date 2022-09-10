@@ -1,8 +1,12 @@
 from instagrapi import Client
 from credentials import *
 from insight.storage import InstaStorage as Storage
+import os
 # save session
 # https://github.com/adw0rd/instagrapi/discussions/220
+
+
+BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 
 
 class Page:
@@ -24,7 +28,8 @@ class InstaScraper(Client):
         super().__init__()
 
         if load:
-            self.load_settings('user_settings.json')
+            fn = os.path.join(BASE_PATH, 'user_settings.json')
+            self.load_settings(fn)
 
         print('logging in...', flush=True, end='')
         self.login(username, password)
