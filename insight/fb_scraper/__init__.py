@@ -36,7 +36,7 @@ if __name__ == '__main__':
     page_name = args.page_name
     
     if args.posts_lookback:
-        latest_date = datetime.now() - timedelta(hours=args.lookback)
+        latest_date = datetime.now() - timedelta(hours=args.posts_lookback)
     elif args.posts_since:
         latest_date = datetime.strptime(args.posts_since, '%Y-%m-%d %H:%M:%S')
     else:
