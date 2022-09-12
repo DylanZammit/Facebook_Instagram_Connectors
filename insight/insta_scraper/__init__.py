@@ -1,7 +1,8 @@
 from instagrapi import Client
-from credentials import *
+from credentials import INSTA_USERNAME, INSTA_PASSWORD
 from insight.storage import InstaStorage as Storage
 import os
+from logger import mylogger
 # save session
 # https://github.com/adw0rd/instagrapi/discussions/220
 
@@ -42,7 +43,6 @@ class InstaScraper(Client):
     def scrape_page(self, page_name):
         page_info = self.user_info_by_username(page_name)
         #page_info = self.user_info_by_username_gql(page_name)
-
         
         page_id = int(page_info.pk)
         username = page_info.username
@@ -69,24 +69,30 @@ class InstaScraper(Client):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--load', action='store_true')
+    parser.add_argument('--noload', action='store_true')
     parser.add_argument('--page_name', default='timesofmalta', type=str)
+    parser.add_argument('--store', action='store_true')
     args = parser.parse_args()
 
+    page_name = args.page_name
 
-    client = InstaScraper(
-        load=args.load, 
-        username=INSTA_USERNAME, 
-        password=INSTA_PASSWORD
-    )
+    fn_log = 'scrape_insta_{}'.format(page_name)
+    logger = mylogger(fn_log, f'{page_name} INSTA Scrape')
+    try:
+        client = InstaScraper(
+            load=not args.noload, 
+            username=INSTA_USERNAME, 
+            password=INSTA_PASSWORD
+        )
 
-    page = client.scrape_page(args.page_name)
-    medias = client.scrape_medias(page.page_id, 20)
-    client.save_session('user_settings.json')
-    #medias = client.scrape_page(client.user_id_from_username(page_name), 20)
+        page = client.scrape_page(page_name)
+        medias = client.scrape_medias(page.page_id, 20)
+        client.save_session('user_settings.json')
+        #medias = client.scrape_page(client.user_id_from_username(page_name), 20)
 
-    storage = Storage()
-
-    storage.store(page)
-    storage.store(medias)
-
+        if args.store:
+            storage = Storage()
+            storage.store(page)
+            storage.store(medias)
+    except Exception as e:
+        logger.critical(e)

@@ -1,15 +1,16 @@
 import os
 import yaml
 
-sql_conn = os.environ.get('SOCIAL_CONN')
-fb = os.environ.get('FB_ABI_CRED')
-insta = os.environ.get('INSTA_CREDENTIALS')
+CRED = os.environ.get('INSIGHT_CREDENTIALS')
 
-if insta:
-    with open(insta) as f:
-        insta = yaml.safe_load(f)['insta']
-else:
-    print('no insta credentials found')
+with open(CRED) as f:
+    _cred = yaml.safe_load(f)
 
-INSTA_USERNAME = insta.get('username')
-INSTA_PASSWORD = insta.get('password')
+INSTA_USERNAME = _cred['insta'].get('username')
+INSTA_PASSWORD = _cred['insta'].get('password')
+
+EMAIL_USERNAME = _cred['email'].get('username')
+EMAIL_PASSWORD = _cred['email'].get('password')
+
+POSTGRES = _cred['postgres']
+BASE_LOG = os.environ.get('INSIGHT_LOGS')

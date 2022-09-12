@@ -5,11 +5,12 @@ import pandas as pd
 from datetime import timedelta, datetime
 from mysql.connector.errors import IntegrityError
 from insight.utils import *
+from credentials import POSTGRES
 
 class Storage:
 
     def __init__(self):
-        self.conn = Connector(os.environ.get('SOCIAL_CONN'))
+        self.conn = Connector(POSTGRES)
         self.scrape_date = datetime.now().date()
         self.last_profile_call = pd.Timestamp('2000-01-01')
 
@@ -404,7 +405,7 @@ class Storage:
 class InstaStorage:
 
     def __init__(self):
-        self.conn = Connector(os.environ.get('SOCIAL_CONN'))
+        self.conn = Connector(POSTGRES)
         self.scrape_date = datetime.now().date()
         self.last_profile_call = pd.Timestamp('2000-01-01')
 

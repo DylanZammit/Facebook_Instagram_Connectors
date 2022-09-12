@@ -10,6 +10,7 @@ from insight.entities import *
 from insight.storage import Storage
 import requests
 import json
+from logger import mylogger
 
 post_metrics = """post_impressions,post_impressions_unique,post_impressions_paid,post_impressions_paid_unique,post_impressions_fan,post_impressions_fan_unique,post_impressions_fan_paid,post_impressions_fan_paid_unique,post_impressions_organic,post_impressions_organic_unique"""
 
@@ -62,7 +63,7 @@ class PageExtractor:
         api_posts = self.api.get_object(self.page.page_id, fields='posts')['posts']['data']
         for api_post in api_posts:
             page_post_id = api_post['id']
-            print(f'reading post {page_post_id}')
+            logger.info(f'reading post {page_post_id}')
             post_id = int(page_post_id.split('_')[1])
 
             react_field = ','.join(['reactions.type({}).limit(0).summary(1).as({})'.format(react, react) for react in self.react_types])
@@ -126,7 +127,22 @@ class PageExtractor:
 
 
 if __name__ == '__main__':
-    page_name = 'levelupmalta'
-    extractor = PageExtractor(page_name)
-    #extractor.pages(0).page_engagement().store()
-    extractor.pages(0).page_engagement().post_fixed().store()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--page_name', help='page name or id [default=levelupmalta]', type=str, default='levelupmalta')
+    parser.add_argument('--store', help='store data', action='store_true') 
+    args = parser.parse_args()
+
+    page_name = args.page_name
+
+    fn_log = 'update_{}'.format(page_name)
+    logger = mylogger(fn_log, f'{page_name} API')
+
+    try:
+        extractor = PageExtractor(page_name)
+        extractor = extractor.pages(0).page_engagement().post_fixed()
+        if args.store:
+            logger.info(storing)
+            extractor.store()
+    except Exception as e:
+        logger.critical(e)
