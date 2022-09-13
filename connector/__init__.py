@@ -50,7 +50,8 @@ class PGConnector:
 
 if __name__ == '__main__':
     import os
-    conn = PGConnector()
+    from credentials import POSTGRES
+    conn = PGConnector(POSTGRES)
     df = conn.execute('select * from pages')
     print(df)
     breakpoint()

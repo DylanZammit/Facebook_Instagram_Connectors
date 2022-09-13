@@ -142,7 +142,7 @@ if __name__ == '__main__':
         extractor = PageExtractor(page_name)
         extractor = extractor.pages(0).page_engagement().post_fixed()
         if args.store:
-            logger.info(storing)
+            logger.info('storing')
             extractor.store()
     except Exception as e:
         logger.critical(e)
