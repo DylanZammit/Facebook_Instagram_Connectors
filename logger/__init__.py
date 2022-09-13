@@ -4,6 +4,11 @@ import os
 import atexit
 from datetime import datetime
 
+TOADDRS = 
+    [
+        'dylanzam@gmail.com',
+        'dylan.z@yourdatalake.com'
+    ]
 
 class BufferingSMTPHandler(logging.handlers.BufferingHandler):
     def __init__(self, mailhost, mailport, fromaddr, toaddrs, subject, capacity):
@@ -57,7 +62,7 @@ def mylogger(fn, subject=None):
         mailhost='smtp.office365.com',
         mailport=587,
         fromaddr=EMAIL_USERNAME,
-        toaddrs=["dylanzam@gmail.com"],
+        toaddrs=TOADDRS,
         subject= subject,
         capacity=100
     )
