@@ -72,6 +72,7 @@ if __name__ == '__main__':
     parser.add_argument('--noload', action='store_true')
     parser.add_argument('--page_name', default='timesofmalta', type=str)
     parser.add_argument('--store', action='store_true')
+    parser.add_argument('--num_media', default='number of media posts to scrape', type=int, default=50)
     args = parser.parse_args()
 
     page_name = args.page_name
@@ -86,7 +87,7 @@ if __name__ == '__main__':
         )
 
         page = client.scrape_page(page_name)
-        medias = client.scrape_medias(page.page_id, 20)
+        medias = client.scrape_medias(page.page_id, args.num_media)
         client.save_session('user_settings.json')
         #medias = client.scrape_page(client.user_id_from_username(page_name), 20)
 
