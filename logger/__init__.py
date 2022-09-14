@@ -4,8 +4,7 @@ import os
 import atexit
 from datetime import datetime
 
-TOADDRS = 
-    [
+TOADDRS = [
         'dylanzam@gmail.com',
         'dylan.z@yourdatalake.com'
     ]
