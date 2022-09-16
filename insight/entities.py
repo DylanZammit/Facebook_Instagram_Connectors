@@ -70,7 +70,8 @@ class Page:
             'comments': get_commenters,
             'sharers': get_sharers, 
             'reactors': get_reactors,
-            'posts_per_page': 20
+            'posts_per_page': 20,
+            'extra_info': True
         }
 
         posts = get_posts(self.page_id, options=options)
