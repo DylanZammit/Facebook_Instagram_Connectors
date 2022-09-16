@@ -32,9 +32,8 @@ class InstaScraper(Client):
             fn = os.path.join(BASE_PATH, 'user_settings.json')
             self.load_settings(fn)
 
-        print('logging in...', flush=True, end='')
+        logger.info('logging in...')
         self.login(username, password)
-        print('done')
 
 
     def save_session(self, path):
@@ -61,6 +60,7 @@ class InstaScraper(Client):
         return page
 
     def scrape_medias(self, page_id, n):
+        logger.info('loading medias')
         medias = self.user_medias(page_id, n)
         #medias = self.user_medias_gql(page_id, n)
         return medias
@@ -92,6 +92,7 @@ if __name__ == '__main__':
         #medias = client.scrape_page(client.user_id_from_username(page_name), 20)
 
         if args.store:
+            logger.info('storing')
             storage = Storage()
             storage.store(page)
             storage.store(medias)
