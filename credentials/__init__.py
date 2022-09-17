@@ -14,4 +14,5 @@ EMAIL_PASSWORD = _cred['email'].get('password')
 
 POSTGRES = _cred['postgres']
 PUSHBULLET_KEY = _cred['pushbullet'].get('access_token')
+CHANNEL_TAG = _cred['pushbullet'].get('channel_tag')
 BASE_LOG = os.environ.get('INSIGHT_LOGS')
