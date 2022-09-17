@@ -1,13 +1,16 @@
-from credentials import BASE_LOG, EMAIL_USERNAME, EMAIL_PASSWORD
+from credentials import BASE_LOG, EMAIL_USERNAME, EMAIL_PASSWORD, PUSHBULLET_KEY
 import string, logging, logging.handlers
 import os
 import atexit
 from datetime import datetime
+from pushbullet import Pushbullet
 
 TOADDRS = [
         'dylanzam@gmail.com',
         'dylan.z@yourdatalake.com'
     ]
+
+pb = Pushbullet(PUSHBULLET_KEY)
 
 class BufferingSMTPHandler(logging.handlers.BufferingHandler):
     def __init__(self, mailhost, mailport, fromaddr, toaddrs, subject, capacity):

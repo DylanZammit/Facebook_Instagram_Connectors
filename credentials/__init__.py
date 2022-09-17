@@ -13,4 +13,5 @@ EMAIL_USERNAME = _cred['email'].get('username')
 EMAIL_PASSWORD = _cred['email'].get('password')
 
 POSTGRES = _cred['postgres']
+PUSHBULLET_KEY = _cred['pushbullet'].get('access_token')
 BASE_LOG = os.environ.get('INSIGHT_LOGS')

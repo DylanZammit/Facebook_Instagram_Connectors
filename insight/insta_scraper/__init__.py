@@ -2,7 +2,7 @@ from instagrapi import Client
 from credentials import INSTA_USERNAME, INSTA_PASSWORD
 from insight.storage import InstaStorage as Storage
 import os
-from logger import mylogger
+from logger import mylogger, pb
 # save session
 # https://github.com/adw0rd/instagrapi/discussions/220
 
@@ -78,7 +78,8 @@ if __name__ == '__main__':
     page_name = args.page_name
 
     fn_log = 'scrape_insta_{}'.format(page_name)
-    logger = mylogger(fn_log, f'{page_name} INSTA Scrape')
+    notif_name = f'{page_name} INSTA Scrape'
+    logger = mylogger(fn_log, notif_ame)
     try:
         client = InstaScraper(
             load=not args.noload, 
@@ -98,3 +99,7 @@ if __name__ == '__main__':
             storage.store(medias)
     except Exception as e:
         logger.critical(e)
+        pb.push_note(notif_name, e)
+    else:
+        pb.push_note(notif_name, 'Success!')
+        logger.info('success')

@@ -10,7 +10,7 @@ from insight.entities import *
 from insight.storage import Storage
 import requests
 import json
-from logger import mylogger
+from logger import mylogger, pb
 
 post_metrics = """post_impressions,post_impressions_unique,post_impressions_paid,post_impressions_paid_unique,post_impressions_fan,post_impressions_fan_unique,post_impressions_fan_paid,post_impressions_fan_paid_unique,post_impressions_organic,post_impressions_organic_unique"""
 
@@ -136,7 +136,8 @@ if __name__ == '__main__':
     page_name = args.page_name
 
     fn_log = 'update_{}'.format(page_name)
-    logger = mylogger(fn_log, f'{page_name} API')
+    notif_name = f'{page_name} API'
+    logger = mylogger(fn_log, notif_name)
 
     try:
         extractor = PageExtractor(page_name)
@@ -146,3 +147,8 @@ if __name__ == '__main__':
             extractor.store()
     except Exception as e:
         logger.critical(e)
+        pb.push_note(notif_name, e)
+    else:
+        pb.push_note(notif_name, 'Success!')
+        logger.info('success')
+

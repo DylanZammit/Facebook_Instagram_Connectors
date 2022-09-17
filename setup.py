@@ -3,7 +3,7 @@
 from setuptools import setup, find_packages
 
 setup(name='insight',
-      version='0.0.14',
+      version='0.0.15',
       description='insight tools',
       author='dylan zammit',
       author_email='dylanzam@gmail.com',

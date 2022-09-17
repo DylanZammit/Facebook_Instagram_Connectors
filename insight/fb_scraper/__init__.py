@@ -8,7 +8,7 @@ from IPython import embed
 import pandas as pd
 import argparse
 import os
-from logger import mylogger
+from logger import mylogger, pb
 
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 
@@ -26,8 +26,9 @@ if __name__ == '__main__':
     
 
     page_name = args.page_name
+    notif_name = f'{page_name} Scrape'
     fn_log = 'scrape_{}'.format(page_name)
-    logger = mylogger(fn_log, f'{page_name} Scrape')
+    logger = mylogger(fn_log, notif_name)
 
     try:
 
@@ -67,3 +68,7 @@ if __name__ == '__main__':
 
     except Exception as e:
         logger.critical(e)
+        pb.push_note(notif_name, e)
+    else:
+        pb.push_note(notif_name, 'Success!')
+        logger.info('success')
