@@ -1,4 +1,4 @@
-from credentials import BASE_LOG, EMAIL_USERNAME, EMAIL_PASSWORD, PUSHBULLET_KEY
+from credentials import BASE_LOG, EMAIL_USERNAME, EMAIL_PASSWORD, PUSHBULLET_KEY, CHANNEL_TAG
 import string, logging, logging.handlers
 import os
 import atexit
@@ -11,6 +11,10 @@ TOADDRS = [
     ]
 
 pb = Pushbullet(PUSHBULLET_KEY)
+
+def push_to_channel(title, body):
+    pb.push_note(title, body, channel=pb.get_channel(CHANNEL_TAG))
+
 
 class BufferingSMTPHandler(logging.handlers.BufferingHandler):
     def __init__(self, mailhost, mailport, fromaddr, toaddrs, subject, capacity):
