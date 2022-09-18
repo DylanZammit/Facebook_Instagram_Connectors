@@ -89,7 +89,7 @@ if __name__ == '__main__':
 
         page = client.scrape_page(page_name)
         medias = client.scrape_medias(page.page_id, args.num_media)
-        client.save_session('user_settings.json')
+        client.save_session(os.path.join(BASE_PATH, 'user_settings.json'))
         #medias = client.scrape_page(client.user_id_from_username(page_name), 20)
 
         if args.store:
