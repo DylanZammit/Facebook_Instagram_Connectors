@@ -79,7 +79,7 @@ if __name__ == '__main__':
 
     fn_log = 'scrape_insta_{}'.format(page_name)
     notif_name = f'{page_name} INSTA Scrape'
-    logger = mylogger(fn_log, notif_ame)
+    logger = mylogger(fn_log, notif_name)
     try:
         client = InstaScraper(
             load=not args.noload, 

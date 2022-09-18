@@ -64,18 +64,20 @@ def mylogger(fn, subject=None):
     file_handler = logging.FileHandler(os.path.join(BASE_LOG, fn))
     file_handler.setLevel(logging.WARNING)
     file_handler.setFormatter(logging.Formatter(_log_format))
-    smpt_handler = BufferingSMTPHandler(
-        mailhost='smtp.office365.com',
-        mailport=587,
-        fromaddr=EMAIL_USERNAME,
-        toaddrs=TOADDRS,
-        subject= subject,
-        capacity=100
-    )
-    
-    smpt_handler.setLevel(logging.INFO)
-    smpt_handler.setFormatter(logging.Formatter(_log_format))
-    logger.addHandler(smpt_handler)
+
+    if 0:
+        smpt_handler = BufferingSMTPHandler(
+            mailhost='smtp.office365.com',
+            mailport=587,
+            fromaddr=EMAIL_USERNAME,
+            toaddrs=TOADDRS,
+            subject= subject,
+            capacity=100
+        )
+        
+        smpt_handler.setLevel(logging.INFO)
+        smpt_handler.setFormatter(logging.Formatter(_log_format))
+        logger.addHandler(smpt_handler)
     logger.addHandler(file_handler)
     return logger
 
