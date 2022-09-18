@@ -88,6 +88,11 @@ class Storage:
         for post in posts:
             post_id = post.post_id
             exists = post_id in df.post_id.values
+            if post.was_live is not None:
+                was_live = int(post.was_live)
+            else:
+                was_live = None
+
             if not exists:
                 rows.append((
                         post_id,
@@ -96,7 +101,7 @@ class Storage:
                         int(post.has_text),
                         int(post.has_video),
                         int(post.has_image),
-                        int(post.was_live)
+                        was_live
                     ))
         rows = list(set(rows))
         self.conn.insert('post_fixed', rows)
