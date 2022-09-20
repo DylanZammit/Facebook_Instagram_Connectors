@@ -101,7 +101,8 @@ class Storage:
                         int(post.has_text),
                         int(post.has_video),
                         int(post.has_image),
-                        was_live
+                        was_live,
+                        post.caption
                     ))
         rows = list(set(rows))
         self.conn.insert('post_fixed', rows)

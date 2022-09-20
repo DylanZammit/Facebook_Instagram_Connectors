@@ -93,6 +93,7 @@ class Page:
                 post_id = post['post_id']
                 print(f'{i+1}) Post={post_id} on {post_time}')
                 has_text = True if post['text'] is not None else False
+                caption = post.get('text', None)
                 num_comments = post['comments']
                 num_shares = post['shares']
                 has_image = post['image'] is not None
@@ -224,7 +225,8 @@ class Page:
                         num_angry=num_angry,
                         reacts=post_reacts,
                         shares=post_shares,
-                        comments=post_comments
+                        comments=post_comments,
+                        caption=caption
                     )
                 )
 
