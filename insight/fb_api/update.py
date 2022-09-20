@@ -84,8 +84,8 @@ class PageExtractor:
             num_haha = data['HAHA']['summary']['total_count']
             num_angry = data['ANGRY']['summary']['total_count']
             num_sad = data['SAD']['summary']['total_count']
-            message = data.get('message', '')
-            has_text = message != ''
+            caption = data.get('message', '')
+            has_text = caption!= ''
 
             post = Post(
                 num_shares=num_shares,
@@ -103,7 +103,8 @@ class PageExtractor:
                 was_live=None,
                 post_id=post_id,
                 post_time=create_time,
-                page_id=self.page.page_id
+                page_id=self.page.page_id,
+                caption=caption
             )
 
             data = self.api.get_object(f'{page_post_id}/insights', metric=post_metrics)['data']
