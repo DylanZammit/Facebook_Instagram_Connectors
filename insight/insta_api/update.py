@@ -10,24 +10,10 @@ from insight.storage import InstaStorage as Storage
 import requests
 import json
 from logger import mylogger, pb
+from insight.utils import *
 
 media_metrics = """engagement,impressions,reach,saved"""
 page_metrics = """follower_count,impressions,profile_views,reach"""
-
-MEDIA_TYPE_MAP = {'CAROUSEL_ALBUM': 8, 'IMAGE': 1, 'VIDEO': 2}
-MEDIA_PRODUCT_TYPE_MAP = {'FEED': 1, 'IGTV': 2, 'REELS': 3}
-MEDIA_CONTENT = {'PHOTO': 1, 'VIDEO': 2, 'IGTV': 3, 'REEL': 4, 'ALBUM': 5}
-
-
-def get_media_content(media_type, media_product):
-    """
-    	REFER TO https://adw0rd.github.io/instagrapi/usage-guide/media.html
-    """
-    if media_type == 1: return 1
-    if media_type == 8: return 5
-    if media_product == 1: return 2
-    if media_product == 2: return 3
-    if media_product == 3: return 4
 
 
 class PageExtractor:

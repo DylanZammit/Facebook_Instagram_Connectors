@@ -4,6 +4,7 @@ from insight.storage import InstaStorage as Storage
 import os
 from logger import mylogger, pb
 from insight.entities import Page
+from insight.utils import *
 # save session
 # https://github.com/adw0rd/instagrapi/discussions/220
 
@@ -55,6 +56,12 @@ class InstaScraper(Client):
     def scrape_medias(self, page_id, n):
         logger.info('loading medias')
         medias = self.user_medias(page_id, n)
+        for media in medias:
+            media_type = media.media_type
+            media_ptype = media.product_type
+            media_type = get_media_content(media_type, media_ptype.upper())
+            media.media_type = media_type
+
         #medias = self.user_medias_gql(page_id, n)
         return medias
 
