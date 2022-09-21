@@ -3,19 +3,12 @@ from credentials import INSTA_USERNAME, INSTA_PASSWORD
 from insight.storage import InstaStorage as Storage
 import os
 from logger import mylogger, pb
+from insight.entities import Page
 # save session
 # https://github.com/adw0rd/instagrapi/discussions/220
 
 
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
-
-
-class Page:
-
-    def __init__(self, username, **kwargs):
-        self.username = username
-        for k, v in kwargs.items():
-            setattr(self, k, v)
 
 
 # TODO: USE SUGGESTED PROXIES

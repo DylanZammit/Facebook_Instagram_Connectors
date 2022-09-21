@@ -21,6 +21,8 @@ class MyGraphAPI(GraphAPI):
         app_id = tokens.get('app_id')
         app_secret = tokens.get('app_secret')
 
+        self.ig_user = tokens.get(f'{page}_ig_user', None)
+
         if page:
             access_token = tokens.get(f'{page}_access_token')
         else:

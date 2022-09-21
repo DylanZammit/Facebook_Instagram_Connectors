@@ -15,12 +15,9 @@ from insight.utils import *
 
 class Page:
 
-    def __init__(self, page_id, **kwargs):
+    def __init__(self, **kwargs):
         self.posts = []
         self.users = []
-        self.page_id = page_id
-        self.is_competitor = 1
-        self.num_likes = None
         for k, v in kwargs.items():
             setattr(self, k, v)
 
@@ -243,6 +240,16 @@ class Page:
             setattr(self, 'num_likes', num_likes)
             return
         print(f'Could not get page likes for {self.page_id}')
+
+
+class Media:
+
+    def __init__(self, **kwargs):
+        self.shares = []
+        self.comments = []
+        self.reacts = []
+        for k, v in kwargs.items():
+            setattr(self, k, v)
 
 
 class Post:

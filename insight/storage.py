@@ -40,7 +40,7 @@ class Storage:
             page_id = page.page_id
             exists = page_id in df.page_id.values
             if not exists:
-                rows.append((page_id, 1))
+                rows.append((page_id, page.is_competitor))
 
         self.conn.insert('pages', rows)
         return rows
@@ -455,7 +455,17 @@ class InstaStorage:
             exists = len(df[(df.scrape_date==self.scrape_date)&(df.page_id==page_id)])
 
             if not exists:
-                rows.append((page_id, self.scrape_date, page.num_followers, page.num_following, page.num_media))
+                rows.append((
+                    page_id, 
+                    self.scrape_date, 
+                    page.num_followers, 
+                    getattr(page, 'num_following', None),
+                    page.num_media,
+                    getattr(page, 'new_followers', None),
+                    getattr(page, 'impressions', None),
+                    getattr(page, 'reach', None),
+                    getattr(page, 'profile_views', None),
+                ))
             else:
                 print(f'{page_id}@{self.scrape_date} already exists')
 
@@ -506,7 +516,11 @@ class InstaStorage:
                     self.scrape_date,
                     media.comment_count,
                     media.like_count,
-                    media.view_count,
+                    getattr(media, 'view_count', None),
+                    getattr(media, 'impressions', None),
+                    getattr(media, 'reach', None),
+                    getattr(media, 'engagement', None),
+                    getattr(media, 'saved', None),
                 ))
 
         rows = list(set(rows))
