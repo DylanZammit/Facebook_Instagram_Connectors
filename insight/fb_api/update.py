@@ -18,7 +18,7 @@ class PageExtractor:
 
     def __init__(self, page):
         self.api = MyGraphAPI(page=page)
-        self.page = Page(page)
+        self.page = Page(page_id=page)
         self.storage = Storage()
         self.react_types = ['LIKE', 'LOVE', 'WOW', 'HAHA', 'SAD', 'ANGRY', 'NONE']
 

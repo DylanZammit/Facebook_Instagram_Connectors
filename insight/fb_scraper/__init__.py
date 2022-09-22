@@ -51,7 +51,7 @@ if __name__ == '__main__':
 
         num_posts = args.n_posts
 
-        page = Page(page_name)
+        page = Page(page_id=page_name)
         page.get_details()
 
         page.get_page_posts(
