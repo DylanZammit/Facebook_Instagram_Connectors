@@ -63,11 +63,12 @@ class Page:
         if latest_date is None: latest_date = pd.Timestamp('2000-01-01')
         if num_posts is None: num_posts = np.inf
 
+        ppp = 50
         options = {
             'comments': get_commenters,
             'sharers': get_sharers, 
             'reactors': get_reactors,
-            'posts_per_page': 20,
+            'posts_per_page': ppp,
         }
 
         posts = get_posts(self.page_id, options=options, extra_info=True)
@@ -79,7 +80,7 @@ class Page:
             post_shares = []
             post_comments = []
 
-            if i > 0: rsleep(10, 10, q=False)
+            if i > 0 and (i+1)%ppp==0: rsleep(10, 10, q=False)
             post_details = {}
 
             try:
