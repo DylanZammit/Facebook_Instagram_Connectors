@@ -235,11 +235,10 @@ class Page:
 
     def get_details(self):
         page_details = get_page_info(self.page_id)
-        num_likes = page_details.get('likes')
-        if num_likes is not None:
-            setattr(self, 'num_likes', num_likes)
-            return
-        print(f'Could not get page likes for {self.page_id}')
+        num_likes = page_details.get('likes', None)
+        setattr(self, 'num_likes', num_likes)
+        if num_likes is None:
+            print(f'Could not get page likes for {self.page_id}')
 
 
 class Media:
