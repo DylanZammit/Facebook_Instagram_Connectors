@@ -21,7 +21,6 @@ class Storage:
         '''
         if isinstance(obj, list):
             if len(obj) == 0: 
-                print('Empty list passed')
                 return
             rep = obj[0]
         else:
@@ -422,7 +421,6 @@ class InstaStorage:
         '''
         if isinstance(obj, list):
             if len(obj) == 0: 
-                print('Empty list passed')
                 return
             rep = obj[0]
         else:
