@@ -55,7 +55,7 @@ if __name__ == '__main__':
         page = Page(page_id=page_name)
         page.get_details()
 
-        if args.no_posts:
+        if not args.no_posts:
             page.get_page_posts(
                 num_posts=num_posts, 
                 latest_date=latest_date, 
