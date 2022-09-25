@@ -22,6 +22,7 @@ if __name__ == '__main__':
     parser.add_argument('--sharers', help='read and store sharers', action='store_true') 
     parser.add_argument('--reactors', help='read and store reactors', action='store_true') 
     parser.add_argument('--store', help='store data to postgres', action='store_true') 
+    parser.add_argument('--no_posts', help='only store page info', action='store_true') 
     args = parser.parse_args()
     
 
@@ -54,13 +55,14 @@ if __name__ == '__main__':
         page = Page(page_id=page_name)
         page.get_details()
 
-        page.get_page_posts(
-            num_posts=num_posts, 
-            latest_date=latest_date, 
-            get_commenters=args.commenters,
-            get_sharers=args.sharers, 
-            get_reactors=args.reactors
-        )
+        if args.no_posts:
+            page.get_page_posts(
+                num_posts=num_posts, 
+                latest_date=latest_date, 
+                get_commenters=args.commenters,
+                get_sharers=args.sharers, 
+                get_reactors=args.reactors
+            )
 
         if args.store:
             store = Storage()
@@ -68,7 +70,7 @@ if __name__ == '__main__':
 
     except Exception as e:
         logger.critical(e)
-        pb.push_note(notif_name, e)
+        pb.push_note(notif_name, str(e))
     else:
         pb.push_note(notif_name, 'Success!')
         logger.info('success')

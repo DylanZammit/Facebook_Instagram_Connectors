@@ -148,7 +148,7 @@ if __name__ == '__main__':
             extractor.store()
     except Exception as e:
         logger.critical(e)
-        pb.push_note(notif_name, e)
+        pb.push_note(notif_name, str(e))
     else:
         pb.push_note(notif_name, 'Success!')
         logger.info('success')
