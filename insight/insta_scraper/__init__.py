@@ -5,7 +5,6 @@ import os
 from logger import mylogger, pb
 from insight.entities import Page
 from insight.utils import *
-# save session
 # https://github.com/adw0rd/instagrapi/discussions/220
 
 
@@ -15,23 +14,33 @@ BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 # TODO: USE SUGGESTED PROXIES
 class InstaScraper(Client):
 
-    def __init__(self, username, password, load=None):
+    def __init__(self, username, password, login=False, posts_per_page=10):
         """
         load: path to saved session settings
         username/password: credentials of instagram account
         """
         super().__init__()
+        self.posts_per_page = posts_per_page
 
-        if load:
-            fn = os.path.join(BASE_PATH, 'user_settings.json')
-            self.load_settings(fn)
+        self.logged_in = login
+        if login:
+            try:
+                fn = os.path.join(BASE_PATH, 'user_settings.json')
+                self.load_settings(fn)
+            except Exception as e:
+                logger.warning('user settings not found. Logging in')
 
-        logger.info('logging in...')
-        self.login(username, password)
+            logger.info('logging in...')
+            self.login(username, password)
 
 
     def save_session(self, path):
-        self.dump_settings(path)
+        if self.logged_in:
+            self.dump_settings(path)
+            return 1
+        else:
+            logger.warning('Not logged in, can\' save session')
+            return 0
 
     def scrape_page(self, page_name):
         page_info = self.user_info_by_username(page_name)
@@ -55,24 +64,39 @@ class InstaScraper(Client):
 
     def scrape_medias(self, page_id, n):
         logger.info('loading medias')
-        medias = self.user_medias(page_id, n)
+        medias = []
+        next_page = None
+        while n > 0:
+            print(n)
+            n_read = n if n < self.posts_per_page else self.posts_per_page
+            res = self.user_medias_paginated(page_id, n_read, next_page)
+            medias += res[0]
+            next_page = res[1]
+            n -= n_read
+            rsleep(2)
+
+        logger.info('Loaded {} medias'.format(len(medias)))
+        print('Loaded {} medias'.format(len(medias)))
+
         for media in medias:
+            logger.info(f'Reading {media.pk}')
+            print(f'Reading {media.pk}')
             media_type = media.media_type
             media_ptype = media.product_type
             media_type = get_media_content(media_type, media_ptype.upper())
             media.media_type = media_type
 
-        #medias = self.user_medias_gql(page_id, n)
         return medias
 
 
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--noload', action='store_true')
+    parser.add_argument('--login', action='store_true')
     parser.add_argument('--page_name', default='timesofmalta', type=str)
     parser.add_argument('--store', action='store_true')
     parser.add_argument('--num_media', help='number of media posts to scrape', type=int, default=50)
+    parser.add_argument('--posts_per_page', help='number of posts per page', type=int, default=10)
     args = parser.parse_args()
 
     page_name = args.page_name
@@ -82,9 +106,10 @@ if __name__ == '__main__':
     logger = mylogger(fn_log, notif_name)
     try:
         client = InstaScraper(
-            load=not args.noload, 
+            login=args.login, 
             username=INSTA_USERNAME, 
-            password=INSTA_PASSWORD
+            password=INSTA_PASSWORD,
+            posts_per_page=args.posts_per_page
         )
 
         page = client.scrape_page(page_name)
