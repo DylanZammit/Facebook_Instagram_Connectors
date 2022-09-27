@@ -62,7 +62,7 @@ def mylogger(fn, subject=None):
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
     file_handler = logging.FileHandler(os.path.join(BASE_LOG, fn))
-    file_handler.setLevel(logging.WARNING)
+    file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(logging.Formatter(_log_format))
 
     if 0:
