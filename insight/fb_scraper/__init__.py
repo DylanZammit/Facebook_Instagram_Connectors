@@ -299,14 +299,16 @@ if __name__ == '__main__':
         num_posts = args.n_posts
 
         page = extractor.scrape_page(page_name)
-        store = Storage()
 
         posts = []
         if n_posts:
             i = 0
             while len(posts) == 0:
                 logger.info(f'reading {n_posts} posts attempt #{i+1}')
-                if i > 0: rsleep(60)
+                if i > 0: 
+                    rsleep(60)
+                    extractor = FacebookScraper(cookies='cookies.txt')
+
                 posts = extractor.scrape_posts(
                     page_id=page_name,
                     num_posts=num_posts, 
@@ -320,8 +322,10 @@ if __name__ == '__main__':
                 if i == 3:
                     logger.critical('Failed to read posts after 3 attempts')
                     break
+            logger.info(f'{len(posts)} medias loaded')
             
         if args.store:
+            store = Storage()
             store.store(page)
             store.store(posts)
 

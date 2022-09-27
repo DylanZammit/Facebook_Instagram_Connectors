@@ -1,5 +1,6 @@
 from instagrapi import Client
 from credentials import INSTA_USERNAME, INSTA_PASSWORD
+from traceback import format_exc
 from insight.storage import InstaStorage as Storage
 import os
 from logger import mylogger, pb
@@ -39,7 +40,7 @@ class InstaScraper(Client):
             self.dump_settings(path)
             return 1
         else:
-            logger.warning('Not logged in, can\' save session')
+            logger.warning('Not logged in, can\'t save session')
             return 0
 
     def scrape_page(self, page_name):
@@ -67,7 +68,7 @@ class InstaScraper(Client):
         medias = []
         next_page = None
         while n > 0:
-            print(n)
+            logger.info(f'{n} posts remaining to load')
             n_read = n if n < self.posts_per_page else self.posts_per_page
             res = self.user_medias_paginated(page_id, n_read, next_page)
             medias += res[0]
@@ -76,11 +77,10 @@ class InstaScraper(Client):
             rsleep(2)
 
         logger.info('Loaded {} medias'.format(len(medias)))
-        print('Loaded {} medias'.format(len(medias)))
 
         for media in medias:
             logger.info(f'Reading {media.pk}')
-            print(f'Reading {media.pk}')
+            logger.info(f'Reading {media.pk}')
             media_type = media.media_type
             media_ptype = media.product_type
             media_type = get_media_content(media_type, media_ptype.upper())
@@ -100,6 +100,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     page_name = args.page_name
+    num_media = args.num_media
 
     fn_log = 'scrape_insta_{}'.format(page_name)
     notif_name = f'{page_name} INSTA Scrape'
@@ -113,7 +114,26 @@ if __name__ == '__main__':
         )
 
         page = client.scrape_page(page_name)
-        medias = client.scrape_medias(page.page_id, args.num_media)
+
+
+        medias = []
+        if num_media:
+            i = 0
+            while len(medias) == 0:
+                logger.info(f'reading {num_media} medias attempt #{i+1}')
+                if i > 0: 
+                    rsleep(60)
+                    extractor = FacebookScraper(cookies='cookies.txt')
+
+                medias = client.scrape_medias(page.page_id, num_media)
+                i += 1
+
+                if i == 3:
+                    logger.critical('Failed to read posts after 3 attempts')
+                    break
+            logger.info(f'{len(medias)} medias loaded')
+
+
         client.save_session(os.path.join(BASE_PATH, 'user_settings.json'))
         #medias = client.scrape_page(client.user_id_from_username(page_name), 20)
 
@@ -122,9 +142,11 @@ if __name__ == '__main__':
             storage = Storage()
             storage.store(page)
             storage.store(medias)
-    except Exception as e:
-        logger.critical(e)
-        pb.push_note(notif_name, str(e))
+
+    except:
+        err = format_exc()
+        logger.critical(err)
+        pb.push_note(notif_name, err)
     else:
         pb.push_note(notif_name, 'Success!')
         logger.info('success')
