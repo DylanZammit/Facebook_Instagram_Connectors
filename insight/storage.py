@@ -103,6 +103,11 @@ class Storage:
                         was_live,
                         post.caption
                     ))
+
+            if hasattr(post, 'comments'):
+                if len(post.comments):
+                    self.store(post.comments)
+
         rows = list(set(rows))
         self.conn.insert('post_fixed', rows)
         return rows
@@ -366,7 +371,7 @@ class Storage:
         self.conn.insert('post_shares', rows)
         return rows
 
-    def _store_comment(self, comments):
+    def _store_comment_old(self, comments):
         df = self.conn.execute('SELECT comment_id FROM post_comments')
         rows = []
         for comment in comments:
@@ -385,6 +390,47 @@ class Storage:
 
         rows = list(set(rows))
         self.conn.insert('post_comments', rows)
+        return rows
+
+    def _store_comment(self, comments):
+        rows_fixed = self._store_comment_fixed(comments)
+        rows_eng = self._store_comment_engagement(comments)
+        return rows_fixed + rows_eng
+    
+    def _store_comment_fixed(self, comments):
+        df = self.conn.execute('SELECT comment_id FROM comment_fixed')
+        rows = []
+        for comment in comments:
+            exists = comment.comment_id in df.comment_id.values
+            if not exists:
+                rows.append((
+                    comment.post_id,
+                    comment.comment_id,
+                    comment.parent_id,
+                    comment.create_time,
+                    comment.reply_level,
+                    comment.message
+                ))
+
+        rows = list(set(rows))
+        self.conn.insert('comment_fixed', rows)
+        return rows
+
+    def _store_comment_engagement(self, comments):
+        df = self.conn.execute('SELECT comment_id, scrape_date FROM comment_engagement')
+        rows = []
+        for comment in comments:
+            exists = len(df[(df.scrape_date==self.scrape_date)&(df.comment_id==comment.comment_id)])
+            if not exists:
+                rows.append((
+                    self.scrape_date,
+                    comment.comment_id,
+                    comment.num_replies,
+                    comment.num_likes
+                ))
+
+        rows = list(set(rows))
+        self.conn.insert('comment_engagement', rows)
         return rows
 
     def _store_reply(self, replies):

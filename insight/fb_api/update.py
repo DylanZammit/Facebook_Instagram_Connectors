@@ -11,6 +11,7 @@ from insight.storage import Storage
 import requests
 import json
 from logger import mylogger, pb
+from traceback import format_exc
 
 post_metrics = """post_impressions,post_impressions_unique,post_impressions_paid,post_impressions_paid_unique,post_impressions_fan,post_impressions_fan_unique,post_impressions_fan_paid,post_impressions_fan_paid_unique,post_impressions_organic,post_impressions_organic_unique"""
 
@@ -24,9 +25,6 @@ class PageExtractor:
 
     def store(self):
         self.storage.store(self.page)
-
-    def comment_replies(self):
-        pass
     
     def pages(self, is_competitor):
         self.page.is_competitor = is_competitor
@@ -39,9 +37,10 @@ class PageExtractor:
             'period': 'day',
             'access_token': self.api.access_token,
             'since': today,
-            'until': today
+            'until': today,
+            'metric': 'page_views_total,page_engaged_users,page_impressions,page_impressions_unique'
         }
-        url = 'https://graph.facebook.com/levelupmalta/insights?metric=page_views_total,page_engaged_users,page_impressions,page_impressions_unique'
+        url = 'https://graph.facebook.com/levelupmalta/insights'
 
         res = requests.get(url, params=params)
         metrics = json.loads(res.text)['data']
@@ -56,8 +55,45 @@ class PageExtractor:
 
         return self
 
-    def post_comments(self):
-        pass
+    def get_obj_comments(self, post_id, comment_id=None, get_replies=True):
+        '''
+        If comment_id is passed, it is assumed that it is a reply.
+        Otherwise it is assumed that it is a post comment
+        '''
+        return self._get_obj_comments(post_id, comment_id, 0, get_replies)
+    
+    def _get_obj_comments(self, post_id, parent_id=None, level=0, get_replies=True):
+        obj_id = post_id if not parent_id else parent_id
+        url = f'https://graph.facebook.com/{obj_id}/comments'
+        params = {
+            'fields': 'comment_count,created_time,like_count,message,parent',
+            'access_token': self.api.access_token
+        }
+        res = requests.get(url, params=params)
+        data = json.loads(res.text)['data']
+
+        parent_id = None if parent_id is None else int(parent_id.split('_')[1])
+        comments = []
+        for comment_data in data:
+            num_replies = comment_data['comment_count']
+            comment_id = comment_data['id']
+            comment = Comment(
+                comment_id=int(comment_id.split('_')[1]),
+                post_id=int(post_id.split('_')[1]),
+                parent_id=parent_id,
+                num_likes=comment_data['like_count'],
+                num_replies=num_replies,
+                create_time=comment_data['created_time'],
+                message=comment_data['message'],
+                reply_level=level
+            )
+            comments.append(comment)
+
+            if get_replies and num_replies:
+                replies = self._get_obj_comments(post_id, comment_id, level=level+1, get_replies=get_replies)
+                comments += replies
+
+        return comments
 
     def post_fixed(self):
         api_posts = self.api.get_object(self.page.page_id, fields='posts')['posts']['data']
@@ -87,6 +123,8 @@ class PageExtractor:
             caption = data.get('message', '')
             has_text = caption!= ''
 
+            comments = self.get_obj_comments(page_post_id)
+
             post = Post(
                 num_shares=num_shares,
                 num_comments=num_comments,
@@ -104,7 +142,8 @@ class PageExtractor:
                 post_id=post_id,
                 post_time=create_time,
                 page_id=self.page.page_id,
-                caption=caption
+                caption=caption,
+                comments=comments
             )
 
             data = self.api.get_object(f'{page_post_id}/insights', metric=post_metrics)['data']
@@ -146,9 +185,10 @@ if __name__ == '__main__':
         if args.store:
             logger.info('storing')
             extractor.store()
-    except Exception as e:
-        logger.critical(e)
-        pb.push_note(notif_name, str(e))
+    except:
+        err = format_exc()
+        logger.critical(err)
+        pb.push_note(notif_name, err)
     else:
         pb.push_note(notif_name, 'Success!')
         logger.info('success')

@@ -63,7 +63,6 @@ class Comment:
     
     def __init__(self, comment_id, **kwargs):
         self.comment_id = int(comment_id)
-        self.replies = []
         for k, v in kwargs.items():
             setattr(self, k, v)
 

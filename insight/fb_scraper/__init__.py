@@ -322,7 +322,7 @@ if __name__ == '__main__':
                 if i == 3:
                     logger.critical('Failed to read posts after 3 attempts')
                     break
-            logger.info(f'{len(posts)} medias loaded')
+            logger.info(f'{len(posts)} posts loaded')
             
         if args.store:
             store = Storage()
