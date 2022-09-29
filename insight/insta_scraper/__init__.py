@@ -29,6 +29,7 @@ class InstaScraper(Client):
             try:
                 fn = os.path.join(BASE_PATH, 'user_settings.json')
                 self.load_settings(fn)
+                logger.info(f'Loaded user settings {fn}')
             except Exception as e:
                 logger.warning('user settings not found. Logging in')
 
