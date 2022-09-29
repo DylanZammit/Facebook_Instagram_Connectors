@@ -7,6 +7,7 @@ from logger import mylogger, pb
 from insight.entities import Page
 from insight.utils import *
 from credentials import POSTGRES
+from fp.fp import FreeProxy
 # https://github.com/adw0rd/instagrapi/discussions/220
 
 
@@ -16,7 +17,7 @@ BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 # TODO: USE SUGGESTED PROXIES
 class InstaScraper(Client):
 
-    def __init__(self, username, password, login=False, posts_per_page=10):
+    def __init__(self, username, password, login=False, posts_per_page=10, proxy=True):
         """
         load: path to saved session settings
         username/password: credentials of instagram account
@@ -35,6 +36,14 @@ class InstaScraper(Client):
 
             logger.info('logging in...')
             self.login(username, password)
+
+            if proxy:
+                try:
+                    proxy = FreeProxy(anonym=True, timeout=0.3).get()
+                    logger.info(f'Using proxy={proxy}')
+                    self.set_proxy(proxy)
+                except:
+                    logger.warning('Error when setting proxy: '.format(format_exc()))
 
 
     def save_session(self, path):
