@@ -6,6 +6,7 @@ import os
 from logger import mylogger, pb
 from insight.entities import Page
 from insight.utils import *
+from credentials import POSTGRES
 # https://github.com/adw0rd/instagrapi/discussions/220
 
 
@@ -95,6 +96,7 @@ if __name__ == '__main__':
     parser.add_argument('--login', action='store_true')
     parser.add_argument('--page_name', default='timesofmalta', type=str)
     parser.add_argument('--store', action='store_true')
+    parser.add_argument('--no_page', action='store_true')
     parser.add_argument('--num_media', help='number of media posts to scrape', type=int, default=50)
     parser.add_argument('--posts_per_page', help='number of posts per page', type=int, default=10)
     args = parser.parse_args()
@@ -113,7 +115,23 @@ if __name__ == '__main__':
             posts_per_page=args.posts_per_page
         )
 
-        page = client.scrape_page(page_name)
+        
+        page_info_loaded = True
+        if args.no_page:
+            try:
+                page = []
+                from connector import PGConnector as Connector
+                query =f"SELECT page_id FROM insta_pages WHERE username='{page_name}'"
+                conn = Connector(**POSTGRES)
+                page_id = conn.execute(query).page_id[0]
+            except Exception as e:
+                # handle proper error
+                logger.critical('Did not update insta_page')
+                page_info_loaded = False
+
+        if not args.no_page or not page_info_loaded:
+            page = client.scrape_page(page_name)
+            page_id = page.page_id
 
 
         medias = []
@@ -123,9 +141,14 @@ if __name__ == '__main__':
                 logger.info(f'reading {num_media} medias attempt #{i+1}')
                 if i > 0: 
                     rsleep(60)
-                    extractor = FacebookScraper(cookies='cookies.txt')
+                    client = InstaScraper(
+                        login=args.login, 
+                        username=INSTA_USERNAME, 
+                        password=INSTA_PASSWORD,
+                        posts_per_page=args.posts_per_page
+                    )
 
-                medias = client.scrape_medias(page.page_id, num_media)
+                medias = client.scrape_medias(page_id, num_media)
                 i += 1
 
                 if i == 3:
@@ -135,7 +158,6 @@ if __name__ == '__main__':
 
 
         client.save_session(os.path.join(BASE_PATH, 'user_settings.json'))
-        #medias = client.scrape_page(client.user_id_from_username(page_name), 20)
 
         if args.store:
             logger.info('storing')
