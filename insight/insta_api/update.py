@@ -36,8 +36,8 @@ class PageExtractor:
 
     def page_engagement(self):
         # +1 day for API for some reason
-        today = str(datetime.now().date() + timedelta(days=1))
-        yesterday = str(datetime.now().date())
+        today = str(datetime.now().date())
+        yesterday = str(datetime.now().date() - timedelta(days=1))
         params = {
             'period': 'day',
             'access_token': self.api.access_token,
