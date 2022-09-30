@@ -43,7 +43,7 @@ class InstaScraper(Client):
                     logger.info(f'Using proxy={proxy}')
                     self.set_proxy(proxy)
                 except:
-                    logger.warning('Error when setting proxy: '.format(format_exc()))
+                    logger.warning('Error when setting proxy: {}'.format(format_exc()))
 
 
     def save_session(self, path):
@@ -107,6 +107,7 @@ if __name__ == '__main__':
     parser.add_argument('--page_name', default='timesofmalta', type=str)
     parser.add_argument('--store', action='store_true')
     parser.add_argument('--no_page', action='store_true')
+    parser.add_argument('--proxy', action='store_true')
     parser.add_argument('--num_media', help='number of media posts to scrape', type=int, default=50)
     parser.add_argument('--posts_per_page', help='number of posts per page', type=int, default=10)
     args = parser.parse_args()
@@ -122,7 +123,8 @@ if __name__ == '__main__':
             login=args.login, 
             username=INSTA_USERNAME, 
             password=INSTA_PASSWORD,
-            posts_per_page=args.posts_per_page
+            posts_per_page=args.posts_per_page,
+            proxy=args.proxy
         )
 
         
