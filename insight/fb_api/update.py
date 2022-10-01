@@ -137,64 +137,70 @@ class PageExtractor:
             'fields': fields,
             'access_token': self.api.access_token
         }
-        res = requests.get(url, params=params)
-        api_posts = json.loads(res.text)['data']
+        next_url = url
 
-        for api_post in api_posts:
-            page_post_id = api_post['id']
-            logger.info(f'reading post {page_post_id}')
-            post_id = int(page_post_id.split('_')[1])
-            
-            attachments = api_post['attachments']['data']
-            media = next((att['media'] for att in attachments if 'media' in att), {})
-            has_image = 'image' in media
-            has_video = 'video' in media
-            num_shares = api_post.get('shares', {'count': 0})['count']
-            create_time = api_post['created_time']
-            num_reacts = api_post['TOT']['summary']['total_count']
-            num_like = api_post['LIKE']['summary']['total_count']
-            num_love = api_post['LOVE']['summary']['total_count']
-            num_wow = api_post['WOW']['summary']['total_count']
-            num_haha = api_post['HAHA']['summary']['total_count']
-            num_angry = api_post['ANGRY']['summary']['total_count']
-            num_sad = api_post['SAD']['summary']['total_count']
-            caption = api_post.get('message', '')
-            has_text = caption!= ''
+        while next_url is not None:
+            res = requests.get(next_url, params=params)
+            res = json.loads(res.text)
+            api_posts = res['data']
+            next_url = res['paging'].get('next', None)
+            params = {}
 
-            if reply_level == 0:
-                comments = self.get_obj_comments(page_post_id)
-            else:
-                comments = self.format_comments(api_post['comments']['data'], post_id) if 'comments' in api_post else []
+            for api_post in api_posts:
+                page_post_id = api_post['id']
+                logger.info(f'reading post {page_post_id}')
+                post_id = int(page_post_id.split('_')[1])
+                
+                attachments = api_post['attachments']['data']
+                media = next((att['media'] for att in attachments if 'media' in att), {})
+                has_image = 'image' in media
+                has_video = 'video' in media
+                num_shares = api_post.get('shares', {'count': 0})['count']
+                create_time = api_post['created_time']
+                num_reacts = api_post['TOT']['summary']['total_count']
+                num_like = api_post['LIKE']['summary']['total_count']
+                num_love = api_post['LOVE']['summary']['total_count']
+                num_wow = api_post['WOW']['summary']['total_count']
+                num_haha = api_post['HAHA']['summary']['total_count']
+                num_angry = api_post['ANGRY']['summary']['total_count']
+                num_sad = api_post['SAD']['summary']['total_count']
+                caption = api_post.get('message', '')
+                has_text = caption!= ''
 
-            num_comments = len(comments)
+                if reply_level == 0:
+                    comments = self.get_obj_comments(page_post_id)
+                else:
+                    comments = self.format_comments(api_post['comments']['data'], post_id) if 'comments' in api_post else []
 
-            post = Post(
-                num_shares=num_shares,
-                num_comments=num_comments,
-                num_reacts=num_reacts,
-                num_like=num_like,
-                num_love=num_love,
-                num_wow=num_wow,
-                num_haha=num_haha,
-                num_angry=num_angry,
-                num_sad=num_sad,
-                has_video=has_video,
-                has_image=has_image,
-                has_text=has_text,
-                was_live=None,
-                post_id=post_id,
-                post_time=create_time,
-                page_id=self.page.page_id,
-                caption=caption,
-                comments=comments
-            )
+                num_comments = len(comments)
 
-            for metric in api_post['insights']['data']:
-                name = metric['name']
-                value = metric['values'][0]['value']
-                setattr(post, name, value)
+                post = Post(
+                    num_shares=num_shares,
+                    num_comments=num_comments,
+                    num_reacts=num_reacts,
+                    num_like=num_like,
+                    num_love=num_love,
+                    num_wow=num_wow,
+                    num_haha=num_haha,
+                    num_angry=num_angry,
+                    num_sad=num_sad,
+                    has_video=has_video,
+                    has_image=has_image,
+                    has_text=has_text,
+                    was_live=None,
+                    post_id=post_id,
+                    post_time=create_time,
+                    page_id=self.page.page_id,
+                    caption=caption,
+                    comments=comments
+                )
 
-            self.page.posts.append(post)
+                for metric in api_post['insights']['data']:
+                    name = metric['name']
+                    value = metric['values'][0]['value']
+                    setattr(post, name, value)
+
+                self.page.posts.append(post)
 
         return self
 
