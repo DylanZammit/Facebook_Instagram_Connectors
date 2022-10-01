@@ -18,23 +18,15 @@ page_metrics = """follower_count,impressions,profile_views,reach"""
 
 class PageExtractor:
 
-    def __init__(self, page):
+    def __init__(self, page, is_competitor):
         self.api = MyGraphAPI(page=page)
-        self.page = Page(username=page)
+        self.page = Page(username=page, is_competitor=is_competitor, page_id=self.api.ig_user)
         self.storage = Storage()
 
     def store(self):
         self.storage.store(self.page)
 
-    def comment_replies(self):
-        pass
-    
-    def pages(self, is_competitor):
-        self.page.is_competitor = is_competitor
-        self.page.page_id = self.api.ig_user
-        return self
-
-    def page_engagement(self):
+    def get_page(self):
         # +1 day for API for some reason
         today = str(datetime.now().date())
         yesterday = str(datetime.now().date() - timedelta(days=1))
@@ -70,10 +62,7 @@ class PageExtractor:
 
         return self
 
-    def post_comments(self):
-        pass
-
-    def post_fixed(self):
+    def get_post(self):
         medias = []
         params = {
             'access_token': self.api.access_token,
@@ -132,21 +121,13 @@ class PageExtractor:
             self.page.medias += medias
         return self
 
-    def post_reacts(self):
-        pass
-
-    def post_shares(self):
-        pass
-
-    def users(self):
-        pass
-
 
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--page_name', help='page name or id [default=levelupmalta]', type=str, default='levelupmalta')
     parser.add_argument('--store', help='store data', action='store_true') 
+    parser.add_argument('--is_competitor', help='is competitor', action='store_true') 
     args = parser.parse_args()
 
     page_name = args.page_name
@@ -156,8 +137,8 @@ if __name__ == '__main__':
     logger = mylogger(fn_log, notif_name)
 
     try:
-        extractor = PageExtractor(page_name)
-        extractor = extractor.pages(0).page_engagement().post_fixed()
+        extractor = PageExtractor(page_name, is_competitor=int(args.is_competitor))
+        extractor = extractor.get_page().get_post()
         if args.store:
             logger.info('storing')
             extractor.store()
@@ -165,6 +146,6 @@ if __name__ == '__main__':
         logger.critical(e)
         pb.push_note(notif_name, str(e))
     else:
-        pb.push_note(notif_name, 'Success!')
+        # pb.push_note(notif_name, 'Success!')
         logger.info('success')
 

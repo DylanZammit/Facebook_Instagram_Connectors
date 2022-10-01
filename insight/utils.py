@@ -2,6 +2,13 @@ import numpy as np
 import regex as re
 import time
 
+username2id = {
+    'timesofmalta': 160227208174,
+    'maltatoday': 21535456940,
+    'levelupmalta': 102912759036590,
+    'HamrunSpartansFCOfficial': 100048270135588 
+}
+
 id2react = {
     1: 'LIKE',
     2: 'LOVE',

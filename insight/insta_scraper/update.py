@@ -14,7 +14,6 @@ from fp.fp import FreeProxy
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 
 
-# TODO: USE SUGGESTED PROXIES
 class InstaScraper(Client):
 
     def __init__(self, username, password, login=False, posts_per_page=10, proxy=True):
@@ -104,12 +103,12 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--login', action='store_true')
-    parser.add_argument('--page_name', default='timesofmalta', type=str)
+    parser.add_argument('--page_name', help='[def=timesofmalta]', default='timesofmalta', type=str)
     parser.add_argument('--store', action='store_true')
     parser.add_argument('--no_page', action='store_true')
     parser.add_argument('--proxy', action='store_true')
-    parser.add_argument('--num_media', help='number of media posts to scrape', type=int, default=50)
-    parser.add_argument('--posts_per_page', help='number of posts per page', type=int, default=10)
+    parser.add_argument('--num_media', help='number of media posts to scrape [def=50]', type=int, default=50)
+    parser.add_argument('--posts_per_page', help='number of posts per page [def=10]', type=int, default=10)
     args = parser.parse_args()
 
     page_name = args.page_name
@@ -163,7 +162,7 @@ if __name__ == '__main__':
                 medias = client.scrape_medias(page_id, num_media)
                 i += 1
 
-                if i == 3:
+                if len(medias) == 0 and i == 3:
                     logger.critical('Failed to read posts after 3 attempts')
                     break
             logger.info(f'{len(medias)} medias loaded')
@@ -182,5 +181,5 @@ if __name__ == '__main__':
         logger.critical(err)
         pb.push_note(notif_name, err)
     else:
-        pb.push_note(notif_name, 'Success!')
+        #pb.push_note(notif_name, 'Success!')
         logger.info('success')

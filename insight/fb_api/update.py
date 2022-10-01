@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from IPython import embed
 import os
 from insight.entities import *
-from insight.storage import Storage
+from insight.storage import FacebookStorage as Storage
 import requests
 import json
 from logger import mylogger, pb
@@ -17,20 +17,16 @@ post_metrics = """post_impressions,post_impressions_unique,post_impressions_paid
 
 class PageExtractor:
 
-    def __init__(self, page):
-        self.api = MyGraphAPI(page=page)
-        self.page = Page(page_id=page)
+    def __init__(self, username, is_competitor):
+        self.api = MyGraphAPI(page=username)
+        self.page = Page(username=username, is_competitor=is_competitor)
         self.storage = Storage()
         self.react_types = ['LIKE', 'LOVE', 'WOW', 'HAHA', 'SAD', 'ANGRY', 'NONE']
 
     def store(self):
         self.storage.store(self.page)
     
-    def pages(self, is_competitor):
-        self.page.is_competitor = is_competitor
-        return self
-
-    def page_engagement(self):
+    def get_page(self):
         # +1 day for API for some reason
         today = str(datetime.now().date() + timedelta(days=1))
         params = {
@@ -40,7 +36,7 @@ class PageExtractor:
             'until': today,
             'metric': 'page_views_total,page_engaged_users,page_impressions,page_impressions_unique'
         }
-        url = 'https://graph.facebook.com/levelupmalta/insights'
+        url = f'https://graph.facebook.com/{self.page.username}/insights'
 
         res = requests.get(url, params=params)
         metrics = json.loads(res.text)['data']
@@ -48,10 +44,13 @@ class PageExtractor:
             assert len(metric['values'])==1
             setattr(self.page, metric['name'], metric['values'][0]['value'])
 
-        fields = 'id,fan_count'
-        res = self.api.get_object(self.page.page_id, fields=fields)
+        fields = 'id,fan_count,followers_count,name'
+        res = self.api.get_object(self.page.username, fields=fields)
 
         self.page.num_likes = res['fan_count']
+        self.page.num_followers = res['followers_count']
+        self.page.name = res['name']
+        self.page.page_id = int(res['id'])
 
         return self
 
@@ -95,7 +94,7 @@ class PageExtractor:
 
         return comments
 
-    def post_fixed(self):
+    def get_post(self):
         api_posts = self.api.get_object(self.page.page_id, fields='posts')['posts']['data']
         for api_post in api_posts:
             page_post_id = api_post['id']
@@ -156,20 +155,12 @@ class PageExtractor:
 
         return self
 
-    def post_reacts(self):
-        pass
-
-    def post_shares(self):
-        pass
-
-    def users(self):
-        pass
-
 
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--page_name', help='page name or id [default=levelupmalta]', type=str, default='levelupmalta')
+    parser.add_argument('--is_competitor', help='is_competitor', action='store_true')
     parser.add_argument('--store', help='store data', action='store_true') 
     args = parser.parse_args()
 
@@ -180,8 +171,8 @@ if __name__ == '__main__':
     logger = mylogger(fn_log, notif_name)
 
     try:
-        extractor = PageExtractor(page_name)
-        extractor = extractor.pages(0).page_engagement().post_fixed()
+        extractor = PageExtractor(page_name, is_competitor=int(args.is_competitor))
+        extractor = extractor.get_page().get_post()
         if args.store:
             logger.info('storing')
             extractor.store()
@@ -190,6 +181,6 @@ if __name__ == '__main__':
         logger.critical(err)
         pb.push_note(notif_name, err)
     else:
-        pb.push_note(notif_name, 'Success!')
+        #pb.push_note(notif_name, 'Success!')
         logger.info('success')
 

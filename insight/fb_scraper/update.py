@@ -1,5 +1,5 @@
 from insight.entities import Page
-from insight.storage import Storage
+from insight.storage import FacebookStorage as Storage
 from selenium.webdriver.common.proxy import Proxy, ProxyType
 from random_user_agent.user_agent import UserAgent
 from random_user_agent.params import SoftwareName, OperatingSystem
@@ -13,7 +13,7 @@ import argparse
 import os
 from logger import mylogger, pb
 from insight.entities import *
-from insight.utils import rsleep
+from insight.utils import rsleep, username2id
 
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 
@@ -75,9 +75,12 @@ class FacebookScraper:
 
         return users, comment_replies
 
-    def scrape_posts(self, page_id, num_posts=None, latest_date=None, get_commenters=False, get_sharers=False, get_reactors=False):
+    def scrape_posts(self, username, num_posts=None, latest_date=None, get_commenters=False, get_sharers=False, get_reactors=False):
         if latest_date is None: latest_date = pd.Timestamp('2000-01-01')
         if num_posts is None: num_posts = np.inf
+
+        if not hasattr(self, 'page_id'):
+            self.page_id = username2id[username]
 
         ppp = self.posts_per_page
         options = {
@@ -87,7 +90,7 @@ class FacebookScraper:
             'posts_per_page': ppp,
         }
 
-        posts = get_posts(page_id, options=options, extra_info=True)
+        posts = get_posts(username, options=options, extra_info=True)
 
         page_posts = []
         users = []
@@ -222,7 +225,7 @@ class FacebookScraper:
                 page_posts.append(
                     Post(
                         post_id=post_id,
-                        page_id=page_id,
+                        page_id=self.page_id,
                         has_text=has_text,
                         has_video=has_video,
                         has_image=has_image,
@@ -251,17 +254,29 @@ class FacebookScraper:
         self.users = users
         return page_posts
 
-    def scrape_page(self, page_id):
+    def scrape_page(self, username):
 
-        page_details = get_page_info(page_id)
+        page_details = get_page_info(username)
         num_likes = page_details.get('likes', None)
+        num_followers = page_details.get('Follower_count', None)
+        page_name = page_details.get('Name', None)
+        page_id = page_details.get('id', None)
+        if page_id is None:
+            page_id = username2id[username]
+        self.page_id = page_id
         #setattr(self, 'num_likes', num_likes)
         if num_likes is None:
-            logger.warning(f'Could not get page likes for {page_id}')
+            logger.warning(f'Could not get page likes for {username}')
+        if num_followers is None:
+            logger.warning(f'Could not get page followers for {username}')
 
         page = Page(
             num_likes=num_likes,
-            page_id=page_name
+            is_competitor=1,
+            num_followers=num_followers,
+            page_id=page_id,
+            username=username,
+            name=page_name
         )
 
         return page
@@ -310,7 +325,7 @@ if __name__ == '__main__':
                     extractor = FacebookScraper(cookies='cookies.txt')
 
                 posts = extractor.scrape_posts(
-                    page_id=page_name,
+                    username=page_name,
                     num_posts=num_posts, 
                     latest_date=latest_date, 
                     get_commenters=args.commenters,
@@ -319,7 +334,7 @@ if __name__ == '__main__':
                 )
                 i += 1
 
-                if i == 3:
+                if len(posts) == 0 and i == 3:
                     logger.critical('Failed to read posts after 3 attempts')
                     break
             logger.info(f'{len(posts)} posts loaded')
@@ -334,5 +349,5 @@ if __name__ == '__main__':
         logger.critical(err)
         pb.push_note(notif_name, err)
     else:
-        pb.push_note(notif_name, 'Success!')
+        #pb.push_note(notif_name, 'Success!')
         logger.info('success')
