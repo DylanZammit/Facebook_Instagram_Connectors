@@ -116,7 +116,7 @@ class PageExtractor:
         
         return comments
 
-    def get_post(self, reply_level=None):
+    def get_post(self, reply_level=0):
         url = f'https://graph.facebook.com/{self.page.page_id}/posts'
         react_field = ','.join(['reactions.type({}).limit(0).summary(1).as({})'.format(react, react) for react in self.react_types])
         insight_field = f'insights.metric({post_metrics})'
@@ -127,9 +127,9 @@ class PageExtractor:
             insight_field
         ])
 
-        if reply_level is not None:
+        if reply_level >= 0:
             comments_field = 'comments.fields(comment_count,created_time,like_count,message,parent{})'
-            for i in range(reply_level):
+            for i in range(reply_level+1):
                 comments_field = comments_field.format(',' + comments_field) if i < reply_level-1 else comments_field.format('')
             fields = ','.join([fields, comments_field])
 
@@ -161,7 +161,7 @@ class PageExtractor:
             caption = api_post.get('message', '')
             has_text = caption!= ''
 
-            if reply_level is None:
+            if reply_level == 0:
                 comments = self.get_obj_comments(page_post_id)
             else:
                 comments = self.format_comments(api_post['comments']['data'], post_id) if 'comments' in api_post else []
@@ -205,7 +205,7 @@ if __name__ == '__main__':
     parser.add_argument('--page_name', help='page name or id [default=levelupmalta]', type=str, default='levelupmalta')
     parser.add_argument('--is_competitor', help='is_competitor', action='store_true')
     parser.add_argument('--store', help='store data', action='store_true') 
-    parser.add_argument('--reply_level', help='reply levels to read [def=all]', type=int)
+    parser.add_argument('--reply_level', help='reply levels to read [def=5]', type=int, default=5)
     args = parser.parse_args()
 
     page_name = args.page_name
