@@ -94,35 +94,79 @@ class PageExtractor:
 
         return comments
 
-    def get_post(self):
-        api_posts = self.api.get_object(self.page.page_id, fields='posts')['posts']['data']
+    def format_comments(self, data, post_id, parent_id=None, level=0):
+        comments = []
+        for comment_data in data:
+            num_replies = comment_data['comment_count']
+            comment_id = int(comment_data['id'].split('_')[1])
+            comment = Comment(
+                comment_id=comment_id,
+                post_id=post_id,
+                parent_id=parent_id,
+                num_likes=comment_data['like_count'],
+                num_replies=num_replies,
+                create_time=comment_data['created_time'],
+                message=comment_data['message'],
+                reply_level=level
+            )
+            comments.append(comment)
+            if 'comments' in comment_data:
+                replies = self.format_comments(comment_data['comments']['data'], post_id, comment_id, level=level+1)
+                comments += replies
+        
+        return comments
+
+    def get_post(self, reply_level=None):
+        url = f'https://graph.facebook.com/{self.page.page_id}/posts'
+        react_field = ','.join(['reactions.type({}).limit(0).summary(1).as({})'.format(react, react) for react in self.react_types])
+        insight_field = f'insights.metric({post_metrics})'
+
+        fields = ','.join([
+            'attachments,reactions.limit(0).summary(1).as(TOT),shares,created_time,message,permalink_url',
+            react_field,
+            insight_field
+        ])
+
+        if reply_level is not None:
+            comments_field = 'comments.fields(comment_count,created_time,like_count,message,parent{})'
+            for i in range(reply_level):
+                comments_field = comments_field.format(',' + comments_field) if i < reply_level-1 else comments_field.format('')
+            fields = ','.join([fields, comments_field])
+
+        params = {
+            'fields': fields,
+            'access_token': self.api.access_token
+        }
+        res = requests.get(url, params=params)
+        api_posts = json.loads(res.text)['data']
+
         for api_post in api_posts:
             page_post_id = api_post['id']
             logger.info(f'reading post {page_post_id}')
             post_id = int(page_post_id.split('_')[1])
-
-            react_field = ','.join(['reactions.type({}).limit(0).summary(1).as({})'.format(react, react) for react in self.react_types])
-            fields = 'attachments,reactions.limit(0).summary(1).as(TOT),comments.summary(1),shares,created_time,message,permalink_url,' + react_field
-            data = self.api.get_object(page_post_id, fields=fields)
             
-            attachments = data['attachments']['data']
+            attachments = api_post['attachments']['data']
             media = next((att['media'] for att in attachments if 'media' in att), {})
             has_image = 'image' in media
             has_video = 'video' in media
-            num_shares = data.get('shares', {'count': 0})['count']
-            num_comments = data['comments']['summary']['total_count']
-            create_time = data['created_time']
-            num_reacts = data['TOT']['summary']['total_count']
-            num_like = data['LIKE']['summary']['total_count']
-            num_love = data['LOVE']['summary']['total_count']
-            num_wow = data['WOW']['summary']['total_count']
-            num_haha = data['HAHA']['summary']['total_count']
-            num_angry = data['ANGRY']['summary']['total_count']
-            num_sad = data['SAD']['summary']['total_count']
-            caption = data.get('message', '')
+            num_shares = api_post.get('shares', {'count': 0})['count']
+            create_time = api_post['created_time']
+            num_reacts = api_post['TOT']['summary']['total_count']
+            num_like = api_post['LIKE']['summary']['total_count']
+            num_love = api_post['LOVE']['summary']['total_count']
+            num_wow = api_post['WOW']['summary']['total_count']
+            num_haha = api_post['HAHA']['summary']['total_count']
+            num_angry = api_post['ANGRY']['summary']['total_count']
+            num_sad = api_post['SAD']['summary']['total_count']
+            caption = api_post.get('message', '')
             has_text = caption!= ''
 
-            comments = self.get_obj_comments(page_post_id)
+            if reply_level is None:
+                comments = self.get_obj_comments(page_post_id)
+            else:
+                comments = self.format_comments(api_post['comments']['data'], post_id) if 'comments' in api_post else []
+
+            num_comments = len(comments)
 
             post = Post(
                 num_shares=num_shares,
@@ -145,8 +189,7 @@ class PageExtractor:
                 comments=comments
             )
 
-            data = self.api.get_object(f'{page_post_id}/insights', metric=post_metrics)['data']
-            for metric in data:
+            for metric in api_post['insights']['data']:
                 name = metric['name']
                 value = metric['values'][0]['value']
                 setattr(post, name, value)
@@ -162,6 +205,7 @@ if __name__ == '__main__':
     parser.add_argument('--page_name', help='page name or id [default=levelupmalta]', type=str, default='levelupmalta')
     parser.add_argument('--is_competitor', help='is_competitor', action='store_true')
     parser.add_argument('--store', help='store data', action='store_true') 
+    parser.add_argument('--reply_level', help='reply levels to read [def=all]', type=int)
     args = parser.parse_args()
 
     page_name = args.page_name
@@ -172,7 +216,7 @@ if __name__ == '__main__':
 
     try:
         extractor = PageExtractor(page_name, is_competitor=int(args.is_competitor))
-        extractor = extractor.get_page().get_post()
+        extractor = extractor.get_page().get_post(reply_level=args.reply_level)
         if args.store:
             logger.info('storing')
             extractor.store()
