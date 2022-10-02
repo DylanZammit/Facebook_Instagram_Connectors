@@ -16,7 +16,7 @@ media_metrics = """engagement,impressions,reach,saved"""
 page_metrics = """follower_count,impressions,profile_views,reach"""
 
 
-class PageExtractor:
+class InstaExtractor:
 
     def __init__(self, page, is_competitor):
         self.api = MyGraphAPI(page=page)
@@ -122,30 +122,29 @@ class PageExtractor:
         return self
 
 
+@time_it
+@bullet_notify
+def main(page_name, is_competitor, store, reply_level, logger, title, **kwargs):
+    extractor = InstaExtractor(page_name, is_competitor=int(is_competitor))
+    extractor = extractor.get_page().get_post()
+    if store:
+        logger.info('storing')
+        extractor.store()
+    return extractor.storage.history
+
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--page_name', help='page name or id [default=levelupmalta]', type=str, default='levelupmalta')
-    parser.add_argument('--store', help='store data', action='store_true') 
     parser.add_argument('--is_competitor', help='is competitor', action='store_true') 
+    parser.add_argument('--store', help='store data', action='store_true') 
+    parser.add_argument('--reply_level', help='reply levels to read [def=5]', type=int, default=5)
     args = parser.parse_args()
 
     page_name = args.page_name
 
-    fn_log = 'update_{}'.format(page_name)
+    fn_log = 'update_IG_{}'.format(page_name)
     notif_name = f'{page_name} INSTA API'
-    logger = mylogger(fn_log, notif_name)
+    logger = mylogger(fn_log)
 
-    try:
-        extractor = PageExtractor(page_name, is_competitor=int(args.is_competitor))
-        extractor = extractor.get_page().get_post()
-        if args.store:
-            logger.info('storing')
-            extractor.store()
-    except Exception as e:
-        logger.critical(e)
-        pb.push_note(notif_name, str(e))
-    else:
-        # pb.push_note(notif_name, 'Success!')
-        logger.info('success')
-
+    main(page_name, args.is_competitor, args.store, args.reply_level, logger=logger, title=notif_name)

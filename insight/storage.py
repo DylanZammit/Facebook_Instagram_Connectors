@@ -7,6 +7,16 @@ from mysql.connector.errors import IntegrityError
 from insight.utils import *
 from credentials import POSTGRES
 
+def save_history(f):
+    def wrapper(self, *args, **kwargs):
+        rows = f(self, *args, **kwargs)
+        n_rows = len(rows)
+        m = len('_store_')
+        key = f.__name__[m:]
+        self.history[key] = n_rows
+        return rows
+    return wrapper
+
 
 class FacebookStorage:
 
@@ -14,6 +24,10 @@ class FacebookStorage:
         self.conn = Connector(**POSTGRES)
         self.scrape_date = pd.Timestamp(datetime.now().date())
         self.last_profile_call = pd.Timestamp('2000-01-01')
+        self.history = {}
+
+    def __str__(self):
+        return '\n'.join([f'{k} rows stored = {v}' for k, v in self.history.items()])
 
     def store(self, obj):
         '''
@@ -31,8 +45,8 @@ class FacebookStorage:
         otype = type(rep).__name__.lower()
         f = getattr(self, '_store_{}'.format(otype))
         rows = f(obj)
-        print(f'{len(rows)} {otype}s inserted')
 
+    @save_history
     def _store_page_dim(self, pages):
         df = self.conn.execute('SELECT page_id FROM dim_fb_page')
         rows = []
@@ -45,6 +59,7 @@ class FacebookStorage:
         self.conn.insert('dim_fb_page', rows)
         return rows
 
+    @save_history
     def _store_page_fact(self, pages):
         df = self.conn.execute('SELECT page_id, pull_date FROM fact_fb_page')
 
@@ -75,13 +90,11 @@ class FacebookStorage:
         rows_fact = self._store_page_fact(pages)
 
         for page in pages:
-            self.store(page.users)
-
-        for page in pages:
             self.store(page.posts)
 
         return rows_dim + rows_fact
 
+    @save_history
     def _store_posts_dim(self, posts):
         df = self.conn.execute('SELECT post_id FROM dim_fb_post')
         rows = []
@@ -116,6 +129,7 @@ class FacebookStorage:
         self.conn.insert('dim_fb_post', rows)
         return rows
 
+    @save_history
     def _store_posts_fact(self, posts):
         
         df = self.conn.execute('SELECT post_id, pull_date FROM fact_fb_post')
@@ -162,6 +176,7 @@ class FacebookStorage:
         rows_fact = self._store_comment_fact(comments)
         return rows_dim + rows_fact
     
+    @save_history
     def _store_comment_dim(self, comments):
         df = self.conn.execute('SELECT comment_id FROM dim_fb_comment')
         rows = []
@@ -181,6 +196,7 @@ class FacebookStorage:
         self.conn.insert('dim_fb_comment', rows)
         return rows
 
+    @save_history
     def _store_comment_fact(self, comments):
         df = self.conn.execute('SELECT comment_id, pull_date FROM fact_fb_comment')
         rows = []
@@ -206,6 +222,10 @@ class InstaStorage:
         self.conn = Connector(**POSTGRES)
         self.scrape_date = pd.Timestamp(datetime.now().date())
         self.last_profile_call = pd.Timestamp('2000-01-01')
+        self.history = {}
+
+    def __str__(self):
+        return '\n'.join([f'{k} rows stored = {v}' for k, v in self.history.items()])
 
     def store(self, obj):
         '''
@@ -223,8 +243,8 @@ class InstaStorage:
         otype = type(rep).__name__.lower()
         f = getattr(self, '_store_{}'.format(otype))
         rows = f(obj)
-        print(f'{len(rows)} {otype}s inserted')
 
+    @save_history
     def _store_page_dim(self, pages):
         df = self.conn.execute('SELECT page_id FROM dim_insta_page')
         rows = []
@@ -237,6 +257,7 @@ class InstaStorage:
         self.conn.insert('dim_insta_page', rows)
         return rows
 
+    @save_history
     def _store_page_fact(self, pages):
         df = self.conn.execute('SELECT page_id, pull_date FROM fact_insta_page')
 
@@ -274,6 +295,7 @@ class InstaStorage:
 
         return rows_dim + rows_fact
 
+    @save_history
     def _store_media_dim(self, medias):
         df = self.conn.execute('SELECT media_id FROM dim_insta_media')
         rows = []
@@ -293,6 +315,7 @@ class InstaStorage:
         self.conn.insert('dim_insta_media', rows)
         return rows
 
+    @save_history
     def _store_media_fact(self, medias):
         
         df = self.conn.execute('SELECT media_id, pull_date FROM fact_insta_media')

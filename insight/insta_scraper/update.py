@@ -100,6 +100,70 @@ class InstaScraper(Client):
         return medias
 
 
+@time_it
+@bullet_notify
+def main(page_name, num_media, proxy, login, no_page, store, posts_per_page, logger, title, **kwargs):
+    client = InstaScraper(
+        login=login, 
+        username=INSTA_USERNAME, 
+        password=INSTA_PASSWORD,
+        posts_per_page=posts_per_page,
+        proxy=proxy
+    )
+
+    
+    page_info_loaded = True
+    if no_page:
+        try:
+            page = []
+            from connector import PGConnector as Connector
+            query =f"SELECT page_id FROM insta_pages WHERE username='{page_name}'"
+            conn = Connector(**POSTGRES)
+            page_id = conn.execute(query).page_id[0]
+        except Exception as e:
+            # handle proper error
+            logger.critical('Did not update insta_page')
+            page_info_loaded = False
+
+    if not no_page or not page_info_loaded:
+        page = client.scrape_page(page_name)
+        page_id = page.page_id
+
+
+    medias = []
+    if num_media:
+        i = 0
+        while len(medias) == 0:
+            logger.info(f'reading {num_media} medias attempt #{i+1}')
+            if i > 0: 
+                rsleep(60)
+                client = InstaScraper(
+                    login=login, 
+                    username=INSTA_USERNAME, 
+                    password=INSTA_PASSWORD,
+                    posts_per_page=posts_per_page
+                )
+
+            medias = client.scrape_medias(page_id, num_media)
+            i += 1
+
+            if len(medias) == 0 and i == 3:
+                logger.critical('Failed to read posts after 3 attempts')
+                break
+        logger.info(f'{len(medias)} medias loaded')
+
+
+    client.save_session(os.path.join(BASE_PATH, 'user_settings.json'))
+
+    if store:
+        logger.info('storing')
+        storage = Storage()
+        storage.store(page)
+        storage.store(medias)
+
+        return storage.history
+    return {}
+
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
@@ -113,74 +177,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     page_name = args.page_name
-    num_media = args.num_media
 
-    fn_log = 'scrape_insta_{}'.format(page_name)
+    fn_log = 'scrape_IG_{}'.format(page_name)
     notif_name = f'{page_name} INSTA Scrape'
-    logger = mylogger(fn_log, notif_name)
-    try:
-        client = InstaScraper(
-            login=args.login, 
-            username=INSTA_USERNAME, 
-            password=INSTA_PASSWORD,
-            posts_per_page=args.posts_per_page,
-            proxy=args.proxy
-        )
+    logger = mylogger(fn_log)
 
-        
-        page_info_loaded = True
-        if args.no_page:
-            try:
-                page = []
-                from connector import PGConnector as Connector
-                query =f"SELECT page_id FROM insta_pages WHERE username='{page_name}'"
-                conn = Connector(**POSTGRES)
-                page_id = conn.execute(query).page_id[0]
-            except Exception as e:
-                # handle proper error
-                logger.critical('Did not update insta_page')
-                page_info_loaded = False
-
-        if not args.no_page or not page_info_loaded:
-            page = client.scrape_page(page_name)
-            page_id = page.page_id
-
-
-        medias = []
-        if num_media:
-            i = 0
-            while len(medias) == 0:
-                logger.info(f'reading {num_media} medias attempt #{i+1}')
-                if i > 0: 
-                    rsleep(60)
-                    client = InstaScraper(
-                        login=args.login, 
-                        username=INSTA_USERNAME, 
-                        password=INSTA_PASSWORD,
-                        posts_per_page=args.posts_per_page
-                    )
-
-                medias = client.scrape_medias(page_id, num_media)
-                i += 1
-
-                if len(medias) == 0 and i == 3:
-                    logger.critical('Failed to read posts after 3 attempts')
-                    break
-            logger.info(f'{len(medias)} medias loaded')
-
-
-        client.save_session(os.path.join(BASE_PATH, 'user_settings.json'))
-
-        if args.store:
-            logger.info('storing')
-            storage = Storage()
-            storage.store(page)
-            storage.store(medias)
-
-    except:
-        err = format_exc()
-        logger.critical(err)
-        pb.push_note(notif_name, err)
-    else:
-        #pb.push_note(notif_name, 'Success!')
-        logger.info('success')
+    main(page_name, args.num_media, args.proxy, args.login, args.no_page, args.store, args.posts_per_page, logger=logger, title=notif_name)

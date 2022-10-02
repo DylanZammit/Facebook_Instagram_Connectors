@@ -1,6 +1,9 @@
 import numpy as np
 import regex as re
 import time
+import functools
+from traceback import format_exc
+from logger import pb
 
 username2id = {
     'timesofmalta': 160227208174,
@@ -53,4 +56,40 @@ def rsleep(t, cap=10, q=True):
     time.sleep(sleep)
     if not q: print('done', flush=True, end='\r')
 
+
+def bullet_notify(f):
+    def wrapper(*args, **kwargs):
+        logger = kwargs.get('logger', None)
+        title = kwargs.get('title', '')
+        err_msg = f'Error: {title}'
+        success_msg = f'Success: {title}'
+        try:
+            res = f(*args, **kwargs)
+        except:
+            err = format_exc()
+            if logger:
+                logger.critical(err)
+                pb.push_note(err_msg, err)
+            return -1
+        else:
+            hist = '\n'.join([f'{k} rows stored = {v}' for k, v in res.items()])
+            if logger:
+                logger.info(hist)
+            pb.push_note(success_msg, hist)
+            return res
+
+    return wrapper
     
+
+def time_it(f):
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        logger = kwargs.get('logger', None)
+        start = time.perf_counter()
+        result = f(*args, **kwargs)
+        end = time.perf_counter()
+        if logger is not None:
+            logger.info(f"Function {f.__name__} ran in {end - start:0.2f} seconds")
+        return result
+    return wrapper
+

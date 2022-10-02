@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from IPython import embed
 import os
 from insight.entities import *
+from insight.utils import *
 from insight.storage import FacebookStorage as Storage
 import requests
 import json
@@ -15,7 +16,7 @@ from traceback import format_exc
 
 post_metrics = """post_impressions,post_impressions_unique,post_impressions_paid,post_impressions_paid_unique,post_impressions_fan,post_impressions_fan_unique,post_impressions_fan_paid,post_impressions_fan_paid_unique,post_impressions_organic,post_impressions_organic_unique"""
 
-class PageExtractor:
+class FacebookExtractor:
 
     def __init__(self, username, is_competitor):
         self.api = MyGraphAPI(page=username)
@@ -205,6 +206,16 @@ class PageExtractor:
         return self
 
 
+@time_it
+@bullet_notify
+def main(page_name, is_competitor, store, reply_level, logger, **kwargs):
+    extractor = FacebookExtractor(page_name, is_competitor=int(is_competitor))
+    extractor = extractor.get_page().get_post(reply_level=reply_level)
+    if store:
+        logger.info('storing')
+        extractor.store()
+    return extractor.storage.history
+
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
@@ -216,21 +227,8 @@ if __name__ == '__main__':
 
     page_name = args.page_name
 
-    fn_log = 'update_{}'.format(page_name)
-    notif_name = f'{page_name} API'
-    logger = mylogger(fn_log, notif_name)
+    fn_log = 'update_FB_{}'.format(page_name)
+    notif_name = f'{page_name} FB API'
+    logger = mylogger(fn_log)
 
-    try:
-        extractor = PageExtractor(page_name, is_competitor=int(args.is_competitor))
-        extractor = extractor.get_page().get_post(reply_level=args.reply_level)
-        if args.store:
-            logger.info('storing')
-            extractor.store()
-    except:
-        err = format_exc()
-        logger.critical(err)
-        pb.push_note(notif_name, err)
-    else:
-        #pb.push_note(notif_name, 'Success!')
-        logger.info('success')
-
+    main(page_name, args.is_competitor, args.store, args.reply_level, logger=logger, title=notif_name)

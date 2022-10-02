@@ -1,6 +1,7 @@
 from credentials import BASE_LOG, EMAIL_USERNAME, EMAIL_PASSWORD, PUSHBULLET_KEY, CHANNEL_TAG
 import string, logging, logging.handlers
 import os
+import sys
 import atexit
 from datetime import datetime
 from pushbullet import Pushbullet
@@ -51,8 +52,7 @@ class BufferingSMTPHandler(logging.handlers.BufferingHandler):
             self.buffer = []
 
 
-def mylogger(fn, subject=None):
-    if subject is None: subject = ''
+def mylogger(fn):
 
     today = datetime.now().strftime('%Y_%m_%d')
     fn = fn[:-4] if fn.endswith('.log') else fn
@@ -65,20 +65,8 @@ def mylogger(fn, subject=None):
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(logging.Formatter(_log_format))
 
-    if 0:
-        smpt_handler = BufferingSMTPHandler(
-            mailhost='smtp.office365.com',
-            mailport=587,
-            fromaddr=EMAIL_USERNAME,
-            toaddrs=TOADDRS,
-            subject= subject,
-            capacity=100
-        )
-        
-        smpt_handler.setLevel(logging.INFO)
-        smpt_handler.setFormatter(logging.Formatter(_log_format))
-        logger.addHandler(smpt_handler)
     logger.addHandler(file_handler)
+    logger.addHandler(logging.StreamHandler(sys.stdout))
     return logger
 
 
