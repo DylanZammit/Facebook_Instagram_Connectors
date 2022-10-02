@@ -62,6 +62,7 @@ class InstaScraper(Client):
         num_followers = page_info.follower_count
         num_following = page_info.following_count
         num_media = page_info.media_count
+        self.page_id = page_id
 
         page = Page(
             username=username, 
@@ -95,6 +96,7 @@ class InstaScraper(Client):
             media_ptype = media.product_type
             media_type = get_media_content(media_type, media_ptype.upper())
             media.media_type = media_type
+            media.page_id = self.page_id
 
         return medias
 
