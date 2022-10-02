@@ -260,7 +260,7 @@ class FacebookScraper:
         num_likes = page_details.get('likes', None)
         num_followers = page_details.get('Follower_count', None)
         page_name = page_details.get('Name', None)
-        page_id = int(page_details.get('id', None))
+        page_id = page_details.get('id', None)
         if page_id is None:
             page_id = username2id[username]
         self.page_id = page_id

@@ -299,11 +299,12 @@ class InstaStorage:
         rows = []
         for media in medias:
             media_id = int(media.pk)
+            page_id = int(media.id.split('_')[1])
             
             exists = len(df[(df.media_id==media_id)&(df.pull_date==self.scrape_date)])
             if not exists:
                 rows.append((
-                    media.page_id,
+                    page_id,
                     media_id,
                     self.scrape_date,
                     media.comment_count,
