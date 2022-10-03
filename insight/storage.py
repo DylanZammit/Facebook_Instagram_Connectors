@@ -311,6 +311,7 @@ class InstaStorage:
                         media.taken_at,
                         media.media_type
                     ))
+            self.store(media.comments)
         rows = list(set(rows))
         self.conn.insert('dim_insta_media', rows)
         return rows
@@ -347,3 +348,48 @@ class InstaStorage:
         rows_dim = self._store_media_dim(medias)
         rows_fact = self._store_media_fact(medias)
         return rows_dim + rows_fact
+
+    def _store_comment(self, comments):
+        rows_dim = self._store_comment_dim(comments)
+        rows_fact = self._store_comment_fact(comments)
+        return rows_dim + rows_fact
+    
+    @save_history
+    def _store_comment_dim(self, comments):
+        df = self.conn.execute('SELECT comment_id FROM dim_insta_comment')
+        rows = []
+        for comment in comments:
+            exists = comment.comment_id in df.comment_id.values
+            if not exists:
+                rows.append((
+                    comment.media_id,
+                    comment.comment_id,
+                    comment.parent_id,
+                    comment.create_time,
+                    comment.reply_level,
+                    comment.message,
+                    comment.username
+                ))
+
+        rows = list(set(rows))
+        self.conn.insert('dim_insta_comment', rows)
+        return rows
+
+    @save_history
+    def _store_comment_fact(self, comments):
+        df = self.conn.execute('SELECT comment_id, pull_date FROM fact_insta_comment')
+        rows = []
+        for comment in comments:
+            exists = len(df[(df.pull_date==self.scrape_date)&(df.comment_id==comment.comment_id)])
+            if not exists:
+                rows.append((
+                    comment.media_id,
+                    self.scrape_date,
+                    comment.comment_id,
+                    comment.num_replies,
+                    comment.num_likes
+                ))
+
+        rows = list(set(rows))
+        self.conn.insert('fact_insta_comment', rows)
+        return rows

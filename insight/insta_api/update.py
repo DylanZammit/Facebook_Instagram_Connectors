@@ -31,16 +31,15 @@ class InstaExtractor:
         today = str(datetime.now().date())
         yesterday = str(datetime.now().date() - timedelta(days=1))
         params = {
-            'period': 'day',
             'access_token': self.api.access_token,
-            'since': yesterday,
-            'until': today,
-            'metric': page_metrics
+            'fields': f'followers_count,insights.metric({page_metrics}).period(day).since({yesterday}).until({today})'
         }
-        url =f'https://graph.facebook.com/{self.api.ig_user}/insights'
+        
+        url =f'https://graph.facebook.com/{self.api.ig_user}'
 
         res = requests.get(url, params=params)
-        metrics = json.loads(res.text)['data']
+        res = json.loads(res.text)
+        metrics = res['insights']['data']
         for metric in metrics:
             assert len(metric['values'])==1
             metric_name = metric['name']
@@ -48,28 +47,62 @@ class InstaExtractor:
                 metric_name = 'new_followers'
             setattr(self.page, metric_name, metric['values'][0]['value'])
 
-        fields = 'followers_count'
-        params = {
-            'access_token': self.api.access_token,
-            'fields': fields
-        }
-        url = f'https://graph.facebook.com/{self.api.ig_user}'
-
-        res = requests.get(url, params=params)
-        data = json.loads(res.text)
-
-        self.page.num_followers = data['followers_count']
+        self.page.num_followers = res['followers_count']
 
         return self
 
+    def format_comments(self, data, media_id):
+        comments = []
+        for comment_data in data:
+            replies = comment_data.get('replies', [])
+            num_replies = len(replies)
+            comment_id = int(comment_data['id'])
+            comment = Comment(
+                comment_id=comment_id,
+                media_id=media_id,
+                parent_id=None,
+                num_likes=comment_data['like_count'],
+                num_replies=num_replies,
+                create_time=comment_data['timestamp'],
+                message=comment_data['text'],
+                reply_level=0,
+                username=comment_data['username']
+            )
+            comments.append(comment)
+
+            # TEST THIS
+            for reply in replies:
+                comment = Comment(
+                    comment_id=reply['id'],
+                    media_id=media_id,
+                    parent_id=comment_id,
+                    num_likes=reply['like_count'],
+                    num_replies=0,
+                    create_time=reply['timestamp'],
+                    message=reply['text'],
+                    reply_level=1,
+                    username=reply['username']
+                )
+                comments.append(comment)
+
+        return comments
+
     def get_post(self):
         medias = []
-        params = {
-            'access_token': self.api.access_token,
-            'fields': 'caption,comments_count,id,like_count,media_product_type,media_type,shortcode,timestamp'
-        }
-        params['fields'] += f',insights.metric({media_metrics})'
+        basic_fields = 'caption,comments_count,id,like_count,media_product_type,media_type,shortcode,timestamp'
+        insights = f'insights.metric({media_metrics})'
         url = f'https://graph.facebook.com/{self.api.ig_user}/media'
+        fields = ','.join([basic_fields, insights])
+
+        comment_fields = 'id,like_count,parent_id,text,timestamp,username'
+        comments_field = f'comments.fields({comment_fields},replies.fields({comment_fields}))'
+
+        fields = ','.join([fields, comments_field])
+
+        params = {
+            'fields': fields,
+            'access_token': self.api.access_token
+        }
 
         next_url = url
 
@@ -80,11 +113,6 @@ class InstaExtractor:
             next_url = res['paging'].get('next', None)
             params = {}
 
-            #res = requests.get(url, params=params)
-            #api_posts = json.loads(res.text)['data']
-
-            #num_media = len(api_posts)
-            #self.page.num_media = num_media
             for api_post in api_posts:
 
                 media_id = int(api_post['id'])
@@ -114,6 +142,8 @@ class InstaExtractor:
                     taken_at=create_time,
                     code=code_id
                 )
+
+                media.comments = self.format_comments(api_post['comments']['data'], media_id) if 'comments' in api_post else []
 
                 metrics = api_post['insights']['data']
 
