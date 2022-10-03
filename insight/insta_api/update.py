@@ -71,54 +71,64 @@ class InstaExtractor:
         params['fields'] += f',insights.metric({media_metrics})'
         url = f'https://graph.facebook.com/{self.api.ig_user}/media'
 
-        res = requests.get(url, params=params)
-        api_posts = json.loads(res.text)['data']
+        next_url = url
 
-        num_media = len(api_posts)
-        self.page.num_media = num_media
-        for api_post in api_posts:
+        while next_url is not None:
+            res = requests.get(next_url, params=params)
+            res = json.loads(res.text)
+            api_posts = res['data']
+            next_url = res['paging'].get('next', None)
+            params = {}
 
-            media_id = int(api_post['id'])
-            logger.info(f'reading post {media_id}')
+            #res = requests.get(url, params=params)
+            #api_posts = json.loads(res.text)['data']
 
-            media_type = MEDIA_TYPE_MAP[api_post['media_type']]
-            media_product_type = MEDIA_PRODUCT_TYPE_MAP[api_post['media_product_type']]
-	
-            media_type = get_media_content(media_type, media_product_type)
+            #num_media = len(api_posts)
+            #self.page.num_media = num_media
+            for api_post in api_posts:
 
-            num_comments = api_post['comments_count']
-            create_time = api_post['timestamp']
+                media_id = int(api_post['id'])
+                logger.info(f'reading post {media_id}')
 
-            num_like = api_post.get('like_count', 0)
-            caption = api_post.get('caption', '')
-            code_id = api_post['shortcode']
-            has_text = caption!=''
+                media_type = MEDIA_TYPE_MAP[api_post['media_type']]
+                media_product_type = MEDIA_PRODUCT_TYPE_MAP[api_post['media_product_type']]
+            
+                media_type = get_media_content(media_type, media_product_type)
 
-            media = Media(
-                pk=media_id,
-                id='{}_{}'.format(self.api.ig_user, media_id),
-                media_type=media_type,
-                comment_count=num_comments,
-                like_count=num_like,
-                page_id=self.page.page_id,
-                caption=caption,
-                taken_at=create_time,
-                code=code_id
-            )
+                num_comments = api_post['comments_count']
+                create_time = api_post['timestamp']
 
-            metrics = api_post['insights']['data']
+                num_like = api_post.get('like_count', 0)
+                caption = api_post.get('caption', '')
+                code_id = api_post['shortcode']
+                has_text = caption!=''
 
-            for metric in metrics:
-                name = metric['name']
-                value = metric['values'][0]['value']
-                setattr(media, name, value)
+                media = Media(
+                    pk=media_id,
+                    id='{}_{}'.format(self.api.ig_user, media_id),
+                    media_type=media_type,
+                    comment_count=num_comments,
+                    like_count=num_like,
+                    page_id=self.page.page_id,
+                    caption=caption,
+                    taken_at=create_time,
+                    code=code_id
+                )
 
-            medias.append(media)
+                metrics = api_post['insights']['data']
+
+                for metric in metrics:
+                    name = metric['name']
+                    value = metric['values'][0]['value']
+                    setattr(media, name, value)
+
+                medias.append(media)
 
         if not hasattr(self.page, 'medias'):
             self.page.medias = medias
         else:
             self.page.medias += medias
+
         return self
 
 
