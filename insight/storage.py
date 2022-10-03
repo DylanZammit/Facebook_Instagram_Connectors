@@ -51,7 +51,7 @@ class FacebookStorage:
         df = self.conn.execute('SELECT page_id FROM dim_fb_page')
         rows = []
         for page in pages:
-            page_id = page.page_id
+            page_id = int(page.page_id)
             exists = page_id in df.page_id.values
             if not exists:
                 rows.append((page.username, page.is_competitor, page_id, page.name))

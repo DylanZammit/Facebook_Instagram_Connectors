@@ -263,7 +263,7 @@ class FacebookScraper:
         page_id = page_details.get('id', None)
         if page_id is None:
             page_id = username2id[username]
-        self.page_id = page_id
+        self.page_id = int(page_id)
         if num_likes is None:
             logger.warning(f'Could not get page likes for {username}')
         if num_followers is None:
