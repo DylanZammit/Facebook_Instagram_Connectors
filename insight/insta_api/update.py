@@ -154,10 +154,8 @@ class InstaExtractor:
 
                 medias.append(media)
 
-        if not hasattr(self.page, 'medias'):
-            self.page.medias = medias
-        else:
-            self.page.medias += medias
+        self.page.medias = medias
+        self.page.num_media = len(medias)
 
         return self
 
