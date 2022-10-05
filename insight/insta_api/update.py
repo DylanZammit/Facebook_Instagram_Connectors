@@ -18,10 +18,15 @@ page_metrics = """follower_count,impressions,profile_views,reach"""
 
 class InstaExtractor:
 
-    def __init__(self, page, is_competitor):
+    def __init__(self, page, is_competitor, do_sentiment=True, do_translate=True):
         self.api = MyGraphAPI(page=page)
         self.page = Page(username=page, is_competitor=is_competitor, page_id=self.api.ig_user)
         self.storage = Storage()
+        if do_sentiment:
+            self.sent = Sentiment(do_translate)
+        else:
+            self.sent = object()
+            self.sent.get_sentiment = dummy
 
     def store(self):
         self.storage.store(self.page)
@@ -54,9 +59,11 @@ class InstaExtractor:
     def format_comments(self, data, media_id):
         comments = []
         for comment_data in data:
+            message = comment_data['text']
             replies = comment_data.get('replies', [])
             num_replies = len(replies)
             comment_id = int(comment_data['id'])
+            sent_label, sent_score = self.sent.get_sentiment(message)
             comment = Comment(
                 comment_id=comment_id,
                 media_id=media_id,
@@ -64,14 +71,18 @@ class InstaExtractor:
                 num_likes=comment_data['like_count'],
                 num_replies=num_replies,
                 create_time=comment_data['timestamp'],
-                message=comment_data['text'],
+                message=message,
                 reply_level=0,
-                username=comment_data['username']
+                username=comment_data['username'],
+                sent_label=sent_label,
+                sent_score=sent_score
             )
             comments.append(comment)
 
             # TEST THIS
             for reply in replies:
+                message = reply['text']
+                sent_label, sent_score = self.sent.get_sentiment(message)
                 comment = Comment(
                     comment_id=reply['id'],
                     media_id=media_id,
@@ -79,9 +90,11 @@ class InstaExtractor:
                     num_likes=reply['like_count'],
                     num_replies=0,
                     create_time=reply['timestamp'],
-                    message=reply['text'],
+                    message=message,
                     reply_level=1,
-                    username=reply['username']
+                    username=reply['username'],
+                    sent_label=sent_label,
+                    sent_score=sent_score
                 )
                 comments.append(comment)
 
@@ -131,6 +144,7 @@ class InstaExtractor:
                 code_id = api_post['shortcode']
                 has_text = caption!=''
 
+                sent_label, sent_score = self.sent.get_sentiment(caption)
                 media = Media(
                     pk=media_id,
                     id='{}_{}'.format(self.api.ig_user, media_id),
@@ -140,7 +154,9 @@ class InstaExtractor:
                     page_id=self.page.page_id,
                     caption=caption,
                     taken_at=create_time,
-                    code=code_id
+                    code=code_id,
+                    sent_label=sent_label,
+                    sent_score=sent_score
                 )
 
                 media.comments = self.format_comments(api_post['comments']['data'], media_id) if 'comments' in api_post else []

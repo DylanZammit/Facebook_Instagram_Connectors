@@ -16,13 +16,19 @@ from traceback import format_exc
 
 post_metrics = """post_impressions,post_impressions_unique,post_impressions_paid,post_impressions_paid_unique,post_impressions_fan,post_impressions_fan_unique,post_impressions_fan_paid,post_impressions_fan_paid_unique,post_impressions_organic,post_impressions_organic_unique"""
 
+
 class FacebookExtractor:
 
-    def __init__(self, username, is_competitor):
+    def __init__(self, username, is_competitor, do_sentiment=True, do_translate=True):
         self.api = MyGraphAPI(page=username)
         self.page = Page(username=username, is_competitor=is_competitor)
         self.storage = Storage()
         self.react_types = ['LIKE', 'LOVE', 'WOW', 'HAHA', 'SAD', 'ANGRY', 'NONE']
+        if do_sentiment:
+            self.sent = Sentiment(do_translate)
+        else:
+            self.sent = object()
+            self.sent.get_sentiment = dummy
 
     def store(self):
         self.storage.store(self.page)
@@ -55,14 +61,14 @@ class FacebookExtractor:
 
         return self
 
-    def get_obj_comments(self, post_id, comment_id=None, get_replies=True):
+    def get_obj_comments(self, post_id, comment_id=None, get_replies=True, do_sentiment=True):
         '''
         If comment_id is passed, it is assumed that it is a reply.
         Otherwise it is assumed that it is a post comment
         '''
-        return self._get_obj_comments(post_id, comment_id, 0, get_replies)
+        return self._get_obj_comments(post_id, comment_id, 0, get_replies, do_sentiment)
     
-    def _get_obj_comments(self, post_id, parent_id=None, level=0, get_replies=True):
+    def _get_obj_comments(self, post_id, parent_id=None, level=0, get_replies=True, do_sentiment=True):
         obj_id = post_id if not parent_id else parent_id
         url = f'https://graph.facebook.com/{obj_id}/comments'
         params = {
@@ -75,8 +81,11 @@ class FacebookExtractor:
         parent_id = None if parent_id is None else int(parent_id.split('_')[1])
         comments = []
         for comment_data in data:
+            message = comment_data['message']
             num_replies = comment_data['comment_count']
             comment_id = comment_data['id']
+
+            sent_label, sent_score = self.sent.get_sentiment(message)
             comment = Comment(
                 comment_id=int(comment_id.split('_')[1]),
                 post_id=int(post_id.split('_')[1]),
@@ -84,8 +93,10 @@ class FacebookExtractor:
                 num_likes=comment_data['like_count'],
                 num_replies=num_replies,
                 create_time=comment_data['created_time'],
-                message=comment_data['message'],
-                reply_level=level
+                message=message,
+                reply_level=level,
+                sent_label=sent_label,
+                sent_score=sent_score
             )
             comments.append(comment)
 
@@ -95,11 +106,14 @@ class FacebookExtractor:
 
         return comments
 
-    def format_comments(self, data, post_id, parent_id=None, level=0):
+    def format_comments(self, data, post_id, parent_id=None, level=0, do_sentiment=True):
         comments = []
         for comment_data in data:
+            message = comment_data['message']
             num_replies = comment_data['comment_count']
             comment_id = int(comment_data['id'].split('_')[1])
+            sent_label, sent_score = self.sent.get_sentiment(message)
+
             comment = Comment(
                 comment_id=comment_id,
                 post_id=post_id,
@@ -107,8 +121,10 @@ class FacebookExtractor:
                 num_likes=comment_data['like_count'],
                 num_replies=num_replies,
                 create_time=comment_data['created_time'],
-                message=comment_data['message'],
-                reply_level=level
+                message=message,
+                reply_level=level,
+                sent_label=sent_label,
+                sent_score=sent_score
             )
             comments.append(comment)
             if 'comments' in comment_data:
@@ -168,6 +184,8 @@ class FacebookExtractor:
                 caption = api_post.get('message', '')
                 has_text = caption!= ''
 
+                sent_label, sent_score = self.sent.get_sentiment(caption)
+
                 if reply_level == 0:
                     comments = self.get_obj_comments(page_post_id)
                 else:
@@ -193,7 +211,9 @@ class FacebookExtractor:
                     post_time=create_time,
                     page_id=self.page.page_id,
                     caption=caption,
-                    comments=comments
+                    comments=comments,
+                    sent_label=sent_label,
+                    sent_score=sent_score
                 )
 
                 for metric in api_post['insights']['data']:

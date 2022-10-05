@@ -44,7 +44,6 @@ class InstaScraper(Client):
                 except:
                     logger.warning('Error when setting proxy: {}'.format(format_exc()))
 
-
     def save_session(self, path):
         if self.logged_in:
             self.dump_settings(path)
@@ -91,11 +90,12 @@ class InstaScraper(Client):
 
         for media in medias:
             logger.info(f'Reading {media.pk}')
-            logger.info(f'Reading {media.pk}')
             media_type = media.media_type
             media_ptype = media.product_type
             media_type = get_media_content(media_type, media_ptype.upper())
             media.media_type = media_type
+            media.sent_label = sent_label
+            media.sent_score = sent_score
 
         return medias
 

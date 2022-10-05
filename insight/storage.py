@@ -116,7 +116,9 @@ class FacebookStorage:
                         int(post.has_video),
                         int(post.has_image),
                         was_live,
-                        post.caption
+                        post.caption,
+                        getattr(post, 'sent_label', None),
+                        getattr(post, 'sent_score', None),
                     ))
 
             if hasattr(post, 'comments'):
@@ -189,7 +191,9 @@ class FacebookStorage:
                     comment.parent_id,
                     comment.create_time,
                     comment.reply_level,
-                    comment.message
+                    comment.message,
+                    getattr(comment, 'sent_label', None),
+                    getattr(comment, 'sent_score', None),
                 ))
 
         rows = list(set(rows))
@@ -368,7 +372,9 @@ class InstaStorage:
                     comment.create_time,
                     comment.reply_level,
                     comment.message,
-                    comment.username
+                    comment.username,
+                    getattr(comment, 'sent_label', None),
+                    getattr(comment, 'sent_score', None),
                 ))
 
         rows = list(set(rows))

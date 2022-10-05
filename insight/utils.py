@@ -4,6 +4,8 @@ import time
 import functools
 from traceback import format_exc
 from logger import pb
+from transformers import pipeline                  
+from googletrans import Translator
 
 username2id = {
     'timesofmalta': 160227208174,
@@ -25,6 +27,27 @@ react2id = {v: k for k, v in id2react.items()}
 MEDIA_TYPE_MAP = {'CAROUSEL_ALBUM': 8, 'IMAGE': 1, 'VIDEO': 2}
 MEDIA_PRODUCT_TYPE_MAP = {'FEED': 1, 'IGTV': 2, 'REELS': 3, 'CLIPS': 3} # scraper and api might return different keys
 MEDIA_CONTENT = {'PHOTO': 1, 'VIDEO': 2, 'IGTV': 3, 'REEL': 4, 'ALBUM': 5}
+
+class Sentiment():
+
+    def __init__(self, do_translate=True):
+        self.sent_pl = pipeline(model='cardiffnlp/twitter-roberta-base-sentiment-latest')
+        self.translate = Translator().translate if do_translate else dummy(1)
+
+    def get_sentiment(self, msg):
+        if msg == '':
+            return None, None
+        msg = self.translate(msg).text
+        sentiment = self.sent_pl(msg)[0]
+        sent_label = sentiment['label']
+        if sent_label == 'Negative':
+            sent_label = 0
+        elif sent_label == 'Neutral':
+            sent_label = 1
+        elif sent_label == 'Positive':
+            sent_label = 2
+        sent_score = sentiment['score']
+        return sent_label, sent_score
 
 
 def get_media_content(media_type, media_product):
@@ -93,3 +116,5 @@ def time_it(f):
         return result
     return wrapper
 
+def dummy(num_nones=2, *args, **kwargs):
+    return (None,)*num_nones

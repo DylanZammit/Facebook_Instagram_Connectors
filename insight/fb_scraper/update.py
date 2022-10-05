@@ -19,7 +19,7 @@ BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 
 class FacebookScraper:
 
-    def __init__(self, login=False, cookies=None, posts_per_page=50):
+    def __init__(self, login=False, cookies=None, posts_per_page=50, do_sentiment=True, do_translate=True):
         """
         doc here
         """
@@ -36,7 +36,11 @@ class FacebookScraper:
         set_user_agent(user_agent)
 
         self.posts_per_page = posts_per_page
-
+        if do_sentiment:
+            self.sent = Sentiment(do_translate)
+        else:
+            self.sent = object()
+            self.sent.get_sentiment = dummy
 
     def parse_replies(self, replies, parent_id):
         users = []
@@ -222,6 +226,8 @@ class FacebookScraper:
                         users.append(user)
                         post_comments.append(post_comment)
 
+                sent_label, sent_score = self.sent.get_sentiment(caption)
+
                 page_posts.append(
                     Post(
                         post_id=post_id,
@@ -243,7 +249,9 @@ class FacebookScraper:
                         reacts=post_reacts,
                         shares=post_shares,
                         comments=post_comments,
-                        caption=caption
+                        caption=caption,
+                        sent_label=sent_label,
+                        sent_score=sent_score
                     )
                 )
 
@@ -301,7 +309,7 @@ def main(page_name, num_posts, posts_since, posts_lookback, store, logger, title
         while len(posts) == 0:
             logger.info(f'reading {num_posts} posts attempt #{i+1}')
             if i > 0: 
-                rsleep(60, q=False)
+                rsleep(30, q=False)
                 extractor = FacebookScraper(cookies='cookies.txt')
 
             posts = extractor.scrape_posts(
