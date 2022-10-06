@@ -116,7 +116,7 @@ The `__init__.py` class handles the GraphAPI class. Make sure you set an env var
 ### insta_api
 Similar to above but for IG.
 ### facebook_scraper
-Logs in facebook via a `cookies.txt` file stored in the same directory as the `__init__.py` and `update.py` files. Creates FB entities containing *only public data* and stores them in PG. Very sensitive to user-specific calls such as likes and comments. Proceed with caution to avoid getting the account banend. Will be deprecated in the future once we are given PPCA permission. Uses (this online scraper](https://github.com/kevinzg/facebook-scraper)
+Logs in facebook via a `cookies.txt` file stored in the same directory as the `__init__.py` and `update.py` files. Creates FB entities containing *only public data* and stores them in PG. Very sensitive to user-specific calls such as likes and comments. Proceed with caution to avoid getting the account banend. Will be deprecated in the future once we are given PPCA permission. Uses [this online scraper](https://github.com/kevinzg/facebook-scraper)
 ### insta_scraper
 Similar to above, uses the [`instagrapi` library](https://github.com/adw0rd/instagrapi) to scrape data. From my experience, IG is more sensitive to bans and limitation. It does not outright ban me, but fails to respond to HTTP requests. Will be deprecated in the future in favour of API once we are given PPCA permission.
 
