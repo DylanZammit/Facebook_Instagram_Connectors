@@ -122,6 +122,15 @@ class FacebookScraper:
                 video_watches = post['video_watches']
                 was_live = post['was_live']
 
+                if has_image:
+                    post_type = 2
+                elif has_video:
+                    post_type = 3
+                elif has_text:
+                    post_type = 1
+                else:
+                    post_type = None
+
                 reactions = post['reactions']
                 if reactions is None: reactions = {}
                 num_like = reactions.get('like', 0)
@@ -237,6 +246,7 @@ class FacebookScraper:
                         has_image=has_image,
                         post_time=post_time,
                         was_live=was_live,
+                        post_type=post_type,
                         num_shares=num_shares,
                         num_comments=num_comments,
                         num_reacts=num_reacts,

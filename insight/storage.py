@@ -119,6 +119,7 @@ class FacebookStorage:
                         post.caption,
                         getattr(post, 'sent_label', None),
                         getattr(post, 'sent_score', None),
+                        int(post.post_type),
                     ))
 
             if hasattr(post, 'comments'):

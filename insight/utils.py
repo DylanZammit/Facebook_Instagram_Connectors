@@ -24,6 +24,7 @@ id2react = {
 }
 
 react2id = {v: k for k, v in id2react.items()}
+FB_POST_TYPE_MAP = {'TEXT': 1, 'IMAGE': 2, 'VIDEO': 3}
 MEDIA_TYPE_MAP = {'CAROUSEL_ALBUM': 8, 'IMAGE': 1, 'VIDEO': 2}
 MEDIA_PRODUCT_TYPE_MAP = {'FEED': 1, 'IGTV': 2, 'REELS': 3, 'CLIPS': 3} # scraper and api might return different keys
 MEDIA_CONTENT = {'PHOTO': 1, 'VIDEO': 2, 'IGTV': 3, 'REEL': 4, 'ALBUM': 5}

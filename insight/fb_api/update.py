@@ -184,6 +184,15 @@ class FacebookExtractor:
                 caption = api_post.get('message', '')
                 has_text = caption!= ''
 
+                if has_image:
+                    post_type = 2
+                elif has_video:
+                    post_type = 3
+                elif has_text:
+                    post_type = 1
+                else:
+                    post_type = None
+
                 sent_label, sent_score = self.sent.get_sentiment(caption)
 
                 if reply_level == 0:
@@ -206,6 +215,7 @@ class FacebookExtractor:
                     has_video=has_video,
                     has_image=has_image,
                     has_text=has_text,
+                    post_type=post_type,
                     was_live=None,
                     post_id=post_id,
                     post_time=create_time,
