@@ -315,7 +315,8 @@ class InstaStorage:
                         media.taken_at,
                         media.media_type
                     ))
-            self.store(media.comments)
+            if hasattr(media, 'comments'):
+                self.store(media.comments)
         rows = list(set(rows))
         self.conn.insert('dim_insta_media', rows)
         return rows

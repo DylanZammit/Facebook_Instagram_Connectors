@@ -31,7 +31,11 @@ MEDIA_CONTENT = {'PHOTO': 1, 'VIDEO': 2, 'IGTV': 3, 'REEL': 4, 'ALBUM': 5}
 class Sentiment():
 
     def __init__(self, do_translate=True):
-        self.sent_pl = pipeline(model='cardiffnlp/twitter-roberta-base-sentiment-latest')
+        self.sent_pl = pipeline(
+                model='cardiffnlp/twitter-roberta-base-sentiment-latest',
+                max_length=512,
+                truncation=True
+            )
         self.translate = Translator().translate if do_translate else dummy(1)
 
     def get_sentiment(self, msg):

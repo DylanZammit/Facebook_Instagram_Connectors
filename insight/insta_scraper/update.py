@@ -94,8 +94,6 @@ class InstaScraper(Client):
             media_ptype = media.product_type
             media_type = get_media_content(media_type, media_ptype.upper())
             media.media_type = media_type
-            media.sent_label = sent_label
-            media.sent_score = sent_score
 
         return medias
 
