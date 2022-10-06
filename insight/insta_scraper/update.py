@@ -1,4 +1,5 @@
 from instagrapi import Client
+from instagrapi.exceptions import ClientError
 from credentials import INSTA_USERNAME, INSTA_PASSWORD
 from traceback import format_exc
 from insight.storage import InstaStorage as Storage
@@ -16,7 +17,7 @@ BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 
 class InstaScraper(Client):
 
-    def __init__(self, username, password, login=False, posts_per_page=10, proxy=True):
+    def __init__(self, username, password, login=False, posts_per_page=10, new_user=False, proxy=True):
         """
         load: path to saved session settings
         username/password: credentials of instagram account
@@ -26,12 +27,13 @@ class InstaScraper(Client):
 
         self.logged_in = login
         if login:
-            try:
-                fn = os.path.join(BASE_PATH, 'user_settings.json')
-                self.load_settings(fn)
-                logger.info(f'Loaded user settings {fn}')
-            except Exception as e:
-                logger.warning('user settings not found. Logging in')
+            if not new_user:
+                try:
+                    fn = os.path.join(BASE_PATH, 'user_settings.json')
+                    self.load_settings(fn)
+                    logger.info(f'Loaded user settings {fn}')
+                except Exception as e:
+                    logger.warning('user settings not found. Logging in')
 
             logger.info('logging in...')
             self.login(username, password)
@@ -100,14 +102,29 @@ class InstaScraper(Client):
 
 @time_it
 @bullet_notify
-def main(page_name, num_media, proxy, login, no_page, store, posts_per_page, logger, title, **kwargs):
-    client = InstaScraper(
-        login=login, 
-        username=INSTA_USERNAME, 
-        password=INSTA_PASSWORD,
-        posts_per_page=posts_per_page,
-        proxy=proxy
-    )
+def main(page_name, num_media, proxy, login, new_user, no_page, store, posts_per_page, logger, title, **kwargs):
+
+    try:
+        client = InstaScraper(
+            login=login, 
+            new_user=new_user,
+            username=INSTA_USERNAME, 
+            password=INSTA_PASSWORD,
+            posts_per_page=posts_per_page,
+            proxy=proxy
+        )
+    except ClientError as e:
+        logger.warning(format_exc())
+        logger.warning('Logging in from scratch')
+        rsleep(10, q=False)
+        client = InstaScraper(
+            login=login, 
+            new_user=True,
+            username=INSTA_USERNAME, 
+            password=INSTA_PASSWORD,
+            posts_per_page=posts_per_page,
+            proxy=proxy
+        )
 
     
     page_info_loaded = True
@@ -134,9 +151,10 @@ def main(page_name, num_media, proxy, login, no_page, store, posts_per_page, log
         while len(medias) == 0:
             logger.info(f'reading {num_media} medias attempt #{i+1}')
             if i > 0: 
-                rsleep(60)
+                rsleep(30)
                 client = InstaScraper(
                     login=login, 
+                    new_user=False,
                     username=INSTA_USERNAME, 
                     password=INSTA_PASSWORD,
                     posts_per_page=posts_per_page
@@ -166,6 +184,7 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--login', action='store_true')
+    parser.add_argument('--new_user', action='store_true')
     parser.add_argument('--page_name', help='[def=timesofmalta]', default='timesofmalta', type=str)
     parser.add_argument('--store', action='store_true')
     parser.add_argument('--no_page', action='store_true')
@@ -180,4 +199,4 @@ if __name__ == '__main__':
     notif_name = f'{page_name} INSTA Scrape'
     logger = mylogger(fn_log)
 
-    main(page_name, args.num_media, args.proxy, args.login, args.no_page, args.store, args.posts_per_page, logger=logger, title=notif_name)
+    main(page_name, args.num_media, args.proxy, args.login, args.new_user, args.no_page, args.store, args.posts_per_page, logger=logger, title=notif_name)
