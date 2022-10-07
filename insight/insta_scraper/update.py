@@ -113,7 +113,8 @@ def main(page_name, num_media, proxy, login, new_user, no_page, store, posts_per
             posts_per_page=posts_per_page,
             proxy=proxy
         )
-    except ClientError as e:
+    except Exception as e:
+    #except ClientError as e:
         logger.warning(format_exc())
         logger.warning('Logging in from scratch')
         rsleep(10, q=False)
