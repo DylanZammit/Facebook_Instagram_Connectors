@@ -1,18 +1,16 @@
-from insight.entities import Page
-from insight.storage import FacebookStorage as Storage
+from insight.facebook.storage import Storage
 from selenium.webdriver.common.proxy import Proxy, ProxyType
 from random_user_agent.user_agent import UserAgent
 from random_user_agent.params import SoftwareName, OperatingSystem
 from facebook_scraper.exceptions import TemporarilyBanned, NotFound
 from facebook_scraper import *
-from IPython import embed
 from traceback import format_exc
 import pandas as pd
 import numpy as np
 import argparse
 import os
 from logger import mylogger, pb
-from insight.entities import *
+from insight.facebook.entities import *
 from insight.utils import *
 
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))

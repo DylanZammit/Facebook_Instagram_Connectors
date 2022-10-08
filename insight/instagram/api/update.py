@@ -1,12 +1,11 @@
 #!/bin/bash -l
 
-from insight.fb_api import MyGraphAPI
+from insight import MyGraphAPI
 import pandas as pd
 from datetime import datetime, timedelta
-from IPython import embed
 import os
-from insight.entities import *
-from insight.storage import InstaStorage as Storage
+from insight.instagram.entities import *
+from insight.instagram.storage import Storage
 import requests
 import json
 from logger import mylogger, pb

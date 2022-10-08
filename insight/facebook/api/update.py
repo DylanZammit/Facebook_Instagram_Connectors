@@ -1,14 +1,12 @@
 #!/bin/bash -l
 
-from insight.fb_api import MyGraphAPI
-#import matplotlib.pyplot as plt
+from insight import MyGraphAPI
 import pandas as pd
 from datetime import datetime, timedelta
-from IPython import embed
 import os
-from insight.entities import *
+from insight.facebook.entities import *
 from insight.utils import *
-from insight.storage import FacebookStorage as Storage
+from insight.facebook.storage import Storage
 import requests
 import json
 from logger import mylogger, pb
