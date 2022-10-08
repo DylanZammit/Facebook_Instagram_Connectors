@@ -19,7 +19,12 @@ class InstaExtractor:
 
     def __init__(self, page, is_competitor, do_sentiment=True, do_translate=True):
         self.api = MyGraphAPI(page=page)
-        self.page = Page(username=page, is_competitor=is_competitor, page_id=self.api.ig_user)
+        self.username = page
+        self.is_competitor = is_copetitor
+        self.page_kwargs = {
+            username=self.username,
+            is_competitor=self.is_competitor,
+        }
         self.storage = Storage()
         if do_sentiment:
             self.sent = Sentiment(do_translate)
@@ -28,6 +33,7 @@ class InstaExtractor:
             self.sent.get_sentiment = dummy
 
     def store(self):
+        self.page = Page(**self.page_kwargs)
         self.storage.store(self.page)
 
     def get_page(self):
@@ -47,11 +53,14 @@ class InstaExtractor:
         for metric in metrics:
             assert len(metric['values'])==1
             metric_name = metric['name']
+            kwargs = {}
             if metric_name == 'follower_count':
                 metric_name = 'new_followers'
-            setattr(self.page, metric_name, metric['values'][0]['value'])
+            kwargs[metric_name] = metric['values'][0]['value']
 
-        self.page.num_followers = res['followers_count']
+        kwargs['num_followers'] = res['followers_count']
+        
+        self.page_kwargs.update(kwargs)
 
         return self
 
@@ -144,33 +153,35 @@ class InstaExtractor:
                 has_text = caption!=''
 
                 sent_label, sent_score = self.sent.get_sentiment(caption)
+                comments = self.format_comments(api_post['comments']['data'], media_id) if 'comments' in api_post else []
+
+                metrics = api_post['insights']['data']
+
+                kwargs = {}
+                for metric in metrics:
+                    name = metric['name']
+                    value = metric['values'][0]['value']
+                    kwargs[name] = value
+
                 media = Media(
                     pk=media_id,
                     id='{}_{}'.format(self.api.ig_user, media_id),
                     media_type=media_type,
                     comment_count=num_comments,
                     like_count=num_like,
-                    page_id=self.page.page_id,
+                    page_id=self.page_kwargs['page_id'],
                     caption=caption,
                     taken_at=create_time,
                     code=code_id,
                     sent_label=sent_label,
-                    sent_score=sent_score
+                    sent_score=sent_score,
+                    comments=comments,
+                    **kwargs
                 )
-
-                media.comments = self.format_comments(api_post['comments']['data'], media_id) if 'comments' in api_post else []
-
-                metrics = api_post['insights']['data']
-
-                for metric in metrics:
-                    name = metric['name']
-                    value = metric['values'][0]['value']
-                    setattr(media, name, value)
-
                 medias.append(media)
 
-        self.page.medias = medias
-        self.page.num_media = len(medias)
+        self.page_kwargs['medias'] = medias
+        self.page_kwargs['num_media'] = len(medias)
 
         return self
 

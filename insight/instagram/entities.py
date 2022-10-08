@@ -1,92 +1,60 @@
 #from facebook_scraper import *
 import gender_guesser.detector as getgender
 from insight.utils import *
+from pydantic import validate_arguments
+from dataclasses import dataclass, field
+from typing import List
 
 
-class Page:
-
-    def __init__(self, **kwargs):
-        self.posts = []
-        self.users = []
-        for k, v in kwargs.items():
-            setattr(self, k, v)
-
-
-class Media:
-
-    def __init__(self, **kwargs):
-        self.shares = []
-        self.comments = []
-        self.reacts = []
-        for k, v in kwargs.items():
-            setattr(self, k, v)
-
-
-class Post:
-
-    def __init__(self, post_id, **kwargs):
-        self.shares = []
-        self.comments = []
-        self.reacts = []
-        self.post_id = int(post_id)
-
-        for k, v in kwargs.items():
-            setattr(self, k, v)
-
-    def get_info(self, comments=True, shares=True, reacts=True):
-        raise NotImplementedError
-
-
-class User:
-
-    d = getgender.Detector(case_sensitive=False)
-    
-    def __init__(self, user_id, **kwargs):
-        self.user_id = user_id
-        for k, v in kwargs.items():
-            setattr(self, k, v)
-
-        if hasattr(self, 'name'):
-            gender = User.d.get_gender(self.name)
-            if 'female' in gender:
-                self.gender = 'F'
-            elif 'male' in gender:
-                self.gender = 'M'
-            else:
-                self.gender = None
-    
-    def get_info(self):
-        raise NotImplementedError
-
-
+@validate_arguments
+@dataclass(frozen=True, order=False)
 class Comment:
+    media_id: int
+    comment_id: int
+    create_time: str
+    reply_level: int
+    parent_id: int = None
+    message: str = ''
+    username: str = None
+    sent_label: int = None
+    sent_score: float = None
+    num_likes: int = None
+    num_replies: int = None
     
-    def __init__(self, comment_id, **kwargs):
-        self.comment_id = int(comment_id)
-        for k, v in kwargs.items():
-            setattr(self, k, v)
 
-class Reply:
-    
-    def __init__(self, reply_id, parent_id, **kwargs):
-        self.reply_id = int(reply_id)
-        self.parent_id = int(parent_id)
-        for k, v in kwargs.items():
-            setattr(self, k, v)
-
-
-class Share:
-    
-    def __init__(self, user_id, post_id, **kwargs):
-        self.post_id = post_id
-        self.user_id = user_id
-        for k, v in kwargs.items():
-            setattr(self, k, v)
+@validate_arguments
+@dataclass(frozen=True, order=False)
+class Media:
+    page_id: int
+    code: int
+    media_id: int 
+    taken_at: int = None
+    media_type: int = None
+    comment_count: int = None
+    like_count: int = None
+    view_count: int = None
+    impressions: int = None
+    reach: int = None
+    engagement: int = None
+    saved: int = None
+    comments: list = field(default_factory=list)
+    #comments: List[Comment] = field(default_factor=list)
 
 
-class React:
-    
-    def __init__(self, post_id, user_id, react_id):
-        self.post_id = post_id
-        self.user_id = user_id
-        self.react_id = react_id
+@validate_arguments
+@dataclass(frozen=True, order=False)
+class Page:
+    page_id: int
+    is_competitor: int = None
+    username: str = None
+    name: str = 'DEFAULT PAGE NAME'
+    num_followers: int = None
+    num_following: int = None
+    num_media: int = None
+    new_followers: int = None
+    impressions: int = None
+    reach: int = None
+    profile_views: int = None
+    medias: list = field(default_factory=list)
+    #medias: List[Media] = field(default_factory=list)
+

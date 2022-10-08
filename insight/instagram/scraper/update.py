@@ -2,10 +2,10 @@ from instagrapi import Client
 from instagrapi.exceptions import ClientError
 from credentials import INSTA_USERNAME, INSTA_PASSWORD
 from traceback import format_exc
-from insight.storage import InstaStorage as Storage
+from insight.instagram.storage import Storage
 import os
 from logger import mylogger, pb
-from insight.entities import Page
+from insight.instagram.entities import Page
 from insight.utils import *
 from credentials import POSTGRES
 from fp.fp import FreeProxy

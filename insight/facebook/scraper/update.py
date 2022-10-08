@@ -40,44 +40,7 @@ class FacebookScraper:
             self.sent = object()
             self.sent.get_sentiment = dummy
 
-    def parse_replies(self, replies, parent_id):
-        users = []
-        comment_replies = []
-        for reply in replies:
-            comment_id = reply['comment_id']
-            comment_time = reply['comment_time']
-            commenter_id = reply['commenter_id']
-            num_reacts = reply.get('comment_reaction_count', 0)
-            if num_reacts is None: num_reacts = 0
-            name, surname = extract_namesurname(reply.get('commenter_name'))
-            user_id = extract_id(reply['commenter_url'])
-            if not user_id.isdecimal() and commenter_id is not None:
-                text_id = user_id
-                user_id = commenter_id
-            else:
-                text_id = None
-
-            user = User(
-                user_id=user_id, 
-                text_id=text_id,
-                name=name, 
-                surname=surname
-            )
-            
-            comment_reply = Reply(
-                reply_id=comment_id,
-                parent_id=parent_id,
-                create_time=comment_time,
-                user_id=user_id,
-                num_reacts=num_reacts,
-            )
-
-            users.append(user)
-            comment_replies.append(comment_reply)
-
-        return users, comment_replies
-
-    def scrape_posts(self, username, num_posts=None, latest_date=None, get_commenters=False, get_sharers=False, get_reactors=False):
+    def scrape_posts(self, username, num_posts=None, latest_date=None):
         if latest_date is None: latest_date = pd.Timestamp('2000-01-01')
         if num_posts is None: num_posts = np.inf
 
@@ -86,9 +49,6 @@ class FacebookScraper:
 
         ppp = self.posts_per_page
         options = {
-            'comments': get_commenters,
-            'sharers': get_sharers, 
-            'reactors': get_reactors,
             'posts_per_page': ppp,
         }
 
@@ -97,15 +57,12 @@ class FacebookScraper:
         page_posts = []
         users = []
         for i, post in enumerate(posts):
-            post_reacts = []
-            post_shares = []
-            post_comments = []
 
             if i > 0 and (i+1)%ppp==0: rsleep(10, 10, q=False)
             post_details = {}
 
             try:
-                post_time = post['time']
+                post_time = str(post['time'])
                 if i >= num_posts: break
                 if pd.Timestamp(post_time) < latest_date: break
 
@@ -140,99 +97,6 @@ class FacebookScraper:
                 num_reacts = post.get('reaction_count', 0)
                 if num_reacts is None: num_reacts = 0
 
-                if get_sharers:
-                    for sharer in post['sharers']:
-                        name, surname = extract_namesurname(sharer['name'])
-                        user_id = extract_id(sharer['link'])
-
-                        share = Share(
-                            user_id=user_id, 
-                            post_id=post_id
-                        )
-
-                        user = User(
-                            user_id=user_id, 
-                            name=name, 
-                            surname=surname
-                        )
-
-                        users.append(user)
-                        post_shares.append(share)
-
-                if get_reactors:
-                    reactors = post['reactors']
-                    if reactors == None: reactors = []
-                    for reactor in reactors:
-                        name, surname = extract_namesurname(reactor['name'])
-                        react_str = reactor.get('type')
-
-                        if react_str is None:
-                            logger.info(f'None type react for {name, surname}')
-                            react_type = None
-                        else:
-                            react_str = react_str.upper()
-                            react_type = react2id.get(react_str)
-
-                            if react_type is None:
-                                react_type = react2id.get('LIKE')
-                                logger.info(f'Treating special react {react_str} by {name} {surname} as LIKE')
-
-                        user_id = extract_id(reactor['link'])
-
-                        user = User(
-                            user_id=user_id, 
-                            name=name, 
-                            surname=surname
-                        )
-
-                        react = React(
-                            user_id=user_id,
-                            post_id=post_id,
-                            react_id=react_type
-                        )
-
-                        users.append(user)
-                        post_reacts.append(react)
-
-                if get_commenters:
-                    for comment in post['comments_full']:
-                        comment_time = comment['comment_time']
-                        comment_id = comment['comment_id']
-                        commenter_id = comment.get('commenter_id')
-                        name, surname = extract_namesurname(comment.get('commenter_name'))
-                        user_id = extract_id(comment['commenter_url'])
-                        if not user_id.isdecimal() and commenter_id is not None:
-                            text_id = user_id
-                            user_id = commenter_id
-                        else:
-                            text_id = None
-                        num_reacts = comment.get('comment_reaction_count', 0)
-                        if num_reacts is None: num_reacts = 0
-                        replies = comment.get('replies', [])
-                        num_replies = len(replies)
-
-                        reply_users, comment_replies = self.parse_replies(replies, comment_id)
-
-                        users += reply_users
-                        user = User(
-                            user_id=user_id, 
-                            text_id=text_id,
-                            name=name, 
-                            surname=surname
-                        )
-                        
-                        post_comment = Comment(
-                            comment_id=comment_id,
-                            replies=comment_replies,
-                            post_id=post_id,
-                            create_time=comment_time,
-                            user_id=user_id,
-                            num_reacts=num_reacts,
-                            num_replies=num_replies
-                        )
-                        users.append(user)
-                        post_comments.append(post_comment)
-
                 sent_label, sent_score = self.sent.get_sentiment(caption)
 
                 page_posts.append(
@@ -254,9 +118,6 @@ class FacebookScraper:
                         num_wow=num_wow,
                         num_sad=num_sad,
                         num_angry=num_angry,
-                        reacts=post_reacts,
-                        shares=post_shares,
-                        comments=post_comments,
                         caption=caption,
                         sent_label=sent_label,
                         sent_score=sent_score

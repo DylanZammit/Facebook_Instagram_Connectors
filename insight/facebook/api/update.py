@@ -19,9 +19,11 @@ class FacebookExtractor:
 
     def __init__(self, username, is_competitor, do_sentiment=True, do_translate=True):
         self.api = MyGraphAPI(page=username)
-        self.page = Page(username=username, is_competitor=is_competitor)
+        self.username = username
+        self.is_competitor = is_competitor
         self.storage = Storage()
         self.react_types = ['LIKE', 'LOVE', 'WOW', 'HAHA', 'SAD', 'ANGRY', 'NONE']
+        self.posts = []
         if do_sentiment:
             self.sent = Sentiment(do_translate)
         else:
@@ -30,6 +32,7 @@ class FacebookExtractor:
 
     def store(self):
         self.storage.store(self.page)
+        self.storage.store(self.posts)
     
     def get_page(self):
         # +1 day for API for some reason
@@ -41,21 +44,27 @@ class FacebookExtractor:
             'until': today,
             'metric': 'page_views_total,page_engaged_users,page_impressions,page_impressions_unique'
         }
-        url = f'https://graph.facebook.com/{self.page.username}/insights'
+        url = f'https://graph.facebook.com/{self.username}/insights'
 
         res = requests.get(url, params=params)
         metrics = json.loads(res.text)['data']
+        kwargs = {}
         for metric in metrics:
             assert len(metric['values'])==1
-            setattr(self.page, metric['name'], metric['values'][0]['value'])
+            kwargs[metric['name']] = metric['values'][0]['value']
 
         fields = 'id,fan_count,followers_count,name'
-        res = self.api.get_object(self.page.username, fields=fields)
+        res = self.api.get_object(self.username, fields=fields)
 
-        self.page.num_likes = res['fan_count']
-        self.page.num_followers = res['followers_count']
-        self.page.name = res['name']
-        self.page.page_id = int(res['id'])
+        self.page = Page(
+            username=self.username, 
+            is_competitor=self.is_competitor,
+            num_likes = res['fan_count'],
+            num_followers = res['followers_count'],
+            name = res['name'],
+            page_id = int(res['id']),
+            **kwargs
+        )
 
         return self
 
@@ -200,6 +209,13 @@ class FacebookExtractor:
 
                 num_comments = len(comments)
 
+
+                metrics = {}
+                for metric in api_post['insights']['data']:
+                    name = metric['name']
+                    value = metric['values'][0]['value']
+                    metrics[name] = value
+
                 post = Post(
                     num_shares=num_shares,
                     num_comments=num_comments,
@@ -221,15 +237,11 @@ class FacebookExtractor:
                     caption=caption,
                     comments=comments,
                     sent_label=sent_label,
-                    sent_score=sent_score
+                    sent_score=sent_score,
+                    **metrics
                 )
 
-                for metric in api_post['insights']['data']:
-                    name = metric['name']
-                    value = metric['values'][0]['value']
-                    setattr(post, name, value)
-
-                self.page.posts.append(post)
+                self.posts.append(post)
 
         return self
 
