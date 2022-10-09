@@ -16,21 +16,27 @@ This project is split up into different modules. Each should probably be its own
 |   +-- post.html
 +-- insight
 |   +-- __init__.py
+|   +-- facebook
+|       +-- entities.py
+|       +-- storage.py
+|       +-- __init__.py
+|       +-- api
+|           +-- __init__.py
+|           +-- update.py
+|       +-- scraper
+|           +-- __init__.py
+|           +-- update.py
+|   +-- instagram
+|       +-- entities.py
+|       +-- storage.py
+|       +-- __init__.py
+|       +-- api
+|           +-- __init__.py
+|           +-- update.py
+|       +-- scraper
+|           +-- __init__.py
+|           +-- update.py
 |   +-- utils.py
-|   +-- entities.py
-|   +-- storage.py
-|   +-- fb_scraper
-|       +-- __init__.py
-|       +-- update.py
-|   +-- insta_scraper
-|       +-- __init__.py
-|       +-- update.py
-|   +-- fb_api
-|       +-- __init__.py
-|       +-- update.py
-|   +-- insta_api
-|       +-- __init__.py
-|       +-- update.py
 ```
 
 ## Connector
@@ -75,11 +81,11 @@ logger.critical('this is critical!!')
 
 ### entities.py
 This contains empty classes of Facebook/Instagram entities such as `Page`, `Post`, `Comment` etc. These are convinent to structure data from the API, and there are almost no restrictions to instantiate a class. TODO: Enforce PK/ID on creation. These classes will also be useful when passing to `Storage` in `storage.py`, as the name of the class is used to call the correct function. In the subsection below, we will shows a simple example to create and store an entity in PG.
-### storage.py
-Handles storing of both FB (via FacebookStorage class) and IG (via InstagramStorage class). The classes contain methods such as `_store_page`, `_store_page_dim` and `_store_page_fact` depending on the entity. However, one should always pass the entity class (or list of entities) to the `_store` method. The entity name will be parsed and sent to its respective method. NOTE: If a list is passed, it is assumed that all objects in the list are of the same entity. If you want to pass both a `Page` and its `Post`, this should be an appropriate attribute of the `Page` class. See example below
+### facebook.storage.py
+Handles storing of FB entities. The classes contain methods such as `_store_page`, `_store_page_dim` and `_store_page_fact` depending on the entity. However, one should always pass the entity class (or list of entities) to the `_store` method. The entity name will be parsed and sent to its respective method. NOTE: If a list is passed, it is assumed that all objects in the list are of the same entity. If you want to pass both a `Page` and its `Post`, this should be an appropriate attribute of the `Page` class. See example below
 ```
-from insight.entities import Page, Post
-from insight.storage import FacebookStorage as Storage
+from insight.facebook.entities import Page, Post
+from insight.facebook.storage import Storage
 
 posts = [
     Post(**kwargs),
@@ -108,15 +114,15 @@ pages = [page_tom, page_mt]
 storage = Storage()
 storage.store(pages)
 ```
-In the above example, each `Page` instance of `pages` is sent to `_store_page`, which in turn calls `_store_page_dim/fact` which in turn passes the `posts` list to `_store_post` and `_store_post_dim/fact` etc.
-### fb_api
+In the above example, each `Page` instance of `pages` is sent to `_store_page`, which in turn calls `_store_page_dim/fact` which in turn passes the `posts` list to `_store_post` and `_store_post_dim/fact` etc. The same can be said for `insight.instagram.storage`.
+### facebook.api
 The `__init__.py` class handles the GraphAPI class. Make sure you set an env var called `FB_API_CRED` which points to a `.yml` containing the appropriate access tokens.
 
 `update.py` is the main ETL script that calls the API endpints. With a minimal amount of API calls, the FacebookExtractor parses the information into fb entities and calles the `FacebookStorage` class as in the example above. As of today, this script reads, parses and stores the entities `Page`, `Post`, `Comment`, including insights.
-### insta_api
+### instagram.api
 Similar to above but for IG.
-### facebook_scraper
+### facebook.scraper
 Logs in facebook via a `cookies.txt` file stored in the same directory as the `__init__.py` and `update.py` files. Creates FB entities containing *only public data* and stores them in PG. Very sensitive to user-specific calls such as likes and comments. Proceed with caution to avoid getting the account banend. Will be deprecated in the future once we are given PPCA permission. Uses [this online scraper](https://github.com/kevinzg/facebook-scraper)
-### insta_scraper
+### instagram.scraper
 Similar to above, uses the [`instagrapi` library](https://github.com/adw0rd/instagrapi) to scrape data. From my experience, IG is more sensitive to bans and limitation. It does not outright ban me, but fails to respond to HTTP requests. Will be deprecated in the future in favour of API once we are given PPCA permission.
 
