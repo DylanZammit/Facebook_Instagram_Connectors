@@ -20,10 +20,11 @@ class InstaExtractor:
     def __init__(self, page, is_competitor, do_sentiment=True, do_translate=True):
         self.api = MyGraphAPI(page=page)
         self.username = page
-        self.is_competitor = is_copetitor
+        self.is_competitor = is_competitor
         self.page_kwargs = {
-            username=self.username,
-            is_competitor=self.is_competitor,
+            'username': self.username,
+            'is_competitor': self.is_competitor,
+            'page_id': self.api.ig_user
         }
         self.storage = Storage()
         if do_sentiment:
