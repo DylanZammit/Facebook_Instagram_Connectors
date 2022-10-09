@@ -174,8 +174,8 @@ class InstaExtractor:
                     caption=caption,
                     taken_at=create_time,
                     code=code_id,
-                    sent_label=sent_label,
-                    sent_score=sent_score,
+                    # sent_label=sent_label,
+                    # sent_score=sent_score,
                     comments=comments,
                     **kwargs
                 )

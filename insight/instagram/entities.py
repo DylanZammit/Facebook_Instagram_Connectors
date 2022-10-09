@@ -25,10 +25,11 @@ class Comment:
 @validate_arguments
 @dataclass(frozen=True, order=False)
 class Media:
+    pk: int
+    id: str
     page_id: int
-    code: int
-    media_id: int 
-    taken_at: int = None
+    code: str
+    taken_at: str = None
     media_type: int = None
     comment_count: int = None
     like_count: int = None
