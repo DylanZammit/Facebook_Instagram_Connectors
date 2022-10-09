@@ -31,6 +31,7 @@ class Media:
     code: str
     taken_at: str = None
     media_type: int = None
+    caption: str = ''
     comment_count: int = None
     like_count: int = None
     view_count: int = None
