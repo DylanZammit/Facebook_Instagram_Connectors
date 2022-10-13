@@ -80,7 +80,7 @@ logger.critical('this is critical!!')
 ## Insight
 
 ### entities.py
-This contains empty classes of Facebook/Instagram entities such as `Page`, `Post`, `Comment` etc. These are convinent to structure data from the API, and there are almost no restrictions to instantiate a class. TODO: Enforce PK/ID on creation. These classes will also be useful when passing to `Storage` in `storage.py`, as the name of the class is used to call the correct function. In the subsection below, we will shows a simple example to create and store an entity in PG.
+Contains @dataclasses, specifying all possible fields and data types. Also enforces non-null fields and raises an error when these criteria are not satisfied (including type-validation). These classes are also useful when passing to `Storage` in `storage.py`, as the name of the class is used to call the correct class function. In the subsection below, we will shows a simple example to create and store an entity in PG.
 ### facebook.storage.py
 Handles storing of FB entities. The classes contain methods such as `_store_page`, `_store_page_dim` and `_store_page_fact` depending on the entity. However, one should always pass the entity class (or list of entities) to the `_store` method. The entity name will be parsed and sent to its respective method. NOTE: If a list is passed, it is assumed that all objects in the list are of the same entity. If you want to pass both a `Page` and its `Post`, this should be an appropriate attribute of the `Page` class. See example below
 ```
