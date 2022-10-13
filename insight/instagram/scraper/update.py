@@ -5,7 +5,7 @@ from traceback import format_exc
 from insight.instagram.storage import Storage
 import os
 from logger import mylogger, pb
-from insight.instagram.entities import Page
+from insight.instagram.entities import Page, Media
 from insight.utils import *
 from credentials import POSTGRES
 from fp.fp import FreeProxy
@@ -78,25 +78,41 @@ class InstaScraper(Client):
     def scrape_medias(self, page_id, n):
         logger.info('loading medias')
         medias = []
+        scraped_medias = []
         next_page = None
         while n > 0:
             logger.info(f'{n} posts remaining to load')
             n_read = n if n < self.posts_per_page else self.posts_per_page
             res = self.user_medias_paginated(page_id, n_read, next_page)
-            medias += res[0]
+            scraped_medias += res[0]
             next_page = res[1]
             n -= n_read
             rsleep(2)
 
-        logger.info('Loaded {} medias'.format(len(medias)))
-
-        for media in medias:
+        logger.info('Loaded {} medias'.format(len(scraped_medias)))
+        for media in scraped_medias:
             logger.info(f'Reading {media.pk}')
+
             media_type = media.media_type
             media_ptype = media.product_type
             media_type = get_media_content(media_type, media_ptype.upper())
-            media.media_type = media_type
-            media.pk = int(media.pk)
+
+            pk, page_id = media.id.split('_')
+
+            # I want to use my dataclass
+            mymedia = Media(
+                pk=int(pk),
+                page_id=int(page_id),
+                id=media.id,
+                media_type=media_type,
+                comment_count=media.comment_count,
+                like_count=media.like_count,
+                caption=media.caption_text,
+                taken_at=str(media.taken_at),
+                code=media.code,
+            )
+
+            medias.append(mymedia)
 
         return medias
 
@@ -191,8 +207,8 @@ if __name__ == '__main__':
     parser.add_argument('--store', action='store_true')
     parser.add_argument('--no_page', action='store_true')
     parser.add_argument('--proxy', action='store_true')
-    parser.add_argument('--num_media', help='number of media posts to scrape [def=50]', type=int, default=50)
-    parser.add_argument('--posts_per_page', help='number of posts per page [def=10]', type=int, default=10)
+    parser.add_argument('--num_media', help='number of media posts to scrape [def=50]', type=int, default=30)
+    parser.add_argument('--posts_per_page', help='number of posts per page [def=10]', type=int, default=15)
     args = parser.parse_args()
 
     page_name = args.page_name

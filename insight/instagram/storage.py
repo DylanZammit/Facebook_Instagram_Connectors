@@ -125,8 +125,11 @@ class Storage:
         df = self.conn.execute('SELECT media_id, pull_date FROM fact_insta_media')
         rows = []
         for media in medias:
-            media_id = int(media.pk)
-            page_id = int(media.id.split('_')[1])
+            #page_id = int(media.id.split('_')[0])
+            #media_id = int(media.id.split('_')[1])
+
+            page_id = media.page_id
+            media_id = media.pk
             
             exists = len(df[(df.media_id==media_id)&(df.pull_date==self.scrape_date)])
             if not exists:
@@ -196,5 +199,6 @@ class Storage:
                 ))
 
         rows = list(set(rows))
+
         self.conn.insert('fact_insta_comment', rows)
         return rows

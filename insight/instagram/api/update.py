@@ -166,7 +166,7 @@ class InstaExtractor:
 
                 media = Media(
                     pk=media_id,
-                    id='{}_{}'.format(self.api.ig_user, media_id),
+                    id='{}_{}'.format(media_id, self.api.ig_user),
                     media_type=media_type,
                     comment_count=num_comments,
                     like_count=num_like,
@@ -174,8 +174,6 @@ class InstaExtractor:
                     caption=caption,
                     taken_at=create_time,
                     code=code_id,
-                    # sent_label=sent_label,
-                    # sent_score=sent_score,
                     comments=comments,
                     **kwargs
                 )
