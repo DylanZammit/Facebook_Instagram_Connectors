@@ -227,7 +227,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.since == 'tdy':
-        since = str(datetime.now().date()+timedelta(days=2)
+        since = str(datetime.now().date()+timedelta(days=2))
     elif args.since == 'ydy':
         since = str(datetime.now().date()+timedelta(days=1))
     else:
