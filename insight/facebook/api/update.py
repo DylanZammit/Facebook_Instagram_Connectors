@@ -254,11 +254,15 @@ def main(page_name, is_competitor, store, reply_level, schema, nopage, noposts, 
     extractor = FacebookExtractor(page_name, is_competitor=int(is_competitor))
     extractor = extractor.get_page().get_post(reply_level=reply_level, n_posts=n_posts, since=since, until=until, limit=n_posts)
     if store:
+        logger.info('storing...')
         store = Storage(schema=schema)
         if not nopage: store.store(extractor.page)
         if not noposts: store.store(extractor.posts)
+        logger.info('stored')
 
         return store.history
+
+    return {}
 
 
 if __name__ == '__main__':

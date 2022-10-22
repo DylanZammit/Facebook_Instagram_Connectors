@@ -20,10 +20,16 @@ def save_history(f):
 
 class Storage:
 
-    def __init__(self):
-        self.conn = Connector(**POSTGRES)
-        self.scrape_date = pd.Timestamp(datetime.now().date())
+    def __init__(self, schema='competitors'):
+        credentials = POSTGRES.copy()
+        credentials['schema'] = schema
+        self.conn = Connector(**credentials)
+        if schema in ['budget']:
+            self.scrape_date = pd.Timestamp(datetime.now())
+        else:
+            self.scrape_date = pd.Timestamp(datetime.now().date())
         self.last_profile_call = pd.Timestamp('2000-01-01')
+        self.schema = schema
         self.history = {}
 
     def __str__(self):
@@ -48,7 +54,7 @@ class Storage:
 
     @save_history
     def _store_page_dim(self, pages):
-        df = self.conn.execute('SELECT page_id FROM dim_insta_page')
+        df = self.conn.execute(f'SELECT page_id FROM {self.schema}.dim_insta_page')
         rows = []
         for page in pages:
             page_id = page.page_id
@@ -56,12 +62,12 @@ class Storage:
             if not exists:
                 rows.append((page_id, page.username, page.is_competitor, page.name))
 
-        self.conn.insert('dim_insta_page', rows)
+        self.conn.insert(f'{self.schema}.dim_insta_page', rows)
         return rows
 
     @save_history
     def _store_page_fact(self, pages):
-        df = self.conn.execute('SELECT page_id, pull_date FROM fact_insta_page')
+        df = self.conn.execute(f'SELECT page_id, pull_date FROM {self.schema}.fact_insta_page')
 
         rows = []
         for page in pages:
@@ -84,7 +90,7 @@ class Storage:
                 print(f'fact page {page_id}@{self.scrape_date} already exists')
 
         rows = list(set(rows))
-        self.conn.insert('fact_insta_page', rows)
+        self.conn.insert(f'{self.schema}.fact_insta_page', rows)
         return rows
 
     def _store_page(self, pages):
@@ -99,7 +105,7 @@ class Storage:
 
     @save_history
     def _store_media_dim(self, medias):
-        df = self.conn.execute('SELECT media_id FROM dim_insta_media')
+        df = self.conn.execute(f'SELECT media_id FROM {self.schema}.dim_insta_media')
         rows = []
         for media in medias:
             media_id = int(media.pk)
@@ -116,13 +122,13 @@ class Storage:
             if hasattr(media, 'comments'):
                 self.store(media.comments)
         rows = list(set(rows))
-        self.conn.insert('dim_insta_media', rows)
+        self.conn.insert(f'{self.schema}.dim_insta_media', rows)
         return rows
 
     @save_history
     def _store_media_fact(self, medias):
         
-        df = self.conn.execute('SELECT media_id, pull_date FROM fact_insta_media')
+        df = self.conn.execute(f'SELECT media_id, pull_date FROM {self.schema}.fact_insta_media')
         rows = []
         for media in medias:
             #page_id = int(media.id.split('_')[0])
@@ -147,7 +153,7 @@ class Storage:
                 ))
 
         rows = list(set(rows))
-        self.conn.insert('fact_insta_media', rows)
+        self.conn.insert(f'{self.schema}.fact_insta_media', rows)
         return rows
 
     def _store_media(self, medias):
@@ -162,7 +168,7 @@ class Storage:
     
     @save_history
     def _store_comment_dim(self, comments):
-        df = self.conn.execute('SELECT comment_id FROM dim_insta_comment')
+        df = self.conn.execute(f'SELECT comment_id FROM {self.schema}.dim_insta_comment')
         rows = []
         for comment in comments:
             exists = comment.comment_id in df.comment_id.values
@@ -180,12 +186,12 @@ class Storage:
                 ))
 
         rows = list(set(rows))
-        self.conn.insert('dim_insta_comment', rows)
+        self.conn.insert(f'{self.schema}.dim_insta_comment', rows)
         return rows
 
     @save_history
     def _store_comment_fact(self, comments):
-        df = self.conn.execute('SELECT comment_id, pull_date FROM fact_insta_comment')
+        df = self.conn.execute(f'SELECT comment_id, pull_date FROM {self.schema}.fact_insta_comment')
         rows = []
         for comment in comments:
             exists = len(df[(df.pull_date==self.scrape_date)&(df.comment_id==comment.comment_id)])
@@ -200,5 +206,5 @@ class Storage:
 
         rows = list(set(rows))
 
-        self.conn.insert('fact_insta_comment', rows)
+        self.conn.insert(f'{self.schema}.fact_insta_comment', rows)
         return rows

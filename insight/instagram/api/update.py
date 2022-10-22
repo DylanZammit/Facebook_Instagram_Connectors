@@ -33,9 +33,6 @@ class InstaExtractor:
             self.sent = object()
             self.sent.get_sentiment = dummy
 
-    def store(self):
-        self.page = Page(**self.page_kwargs)
-        self.storage.store(self.page)
 
     def get_page(self):
         # +1 day for API for some reason
@@ -89,7 +86,12 @@ class InstaExtractor:
             comments.append(comment)
 
             # TEST THIS
-            for reply in replies:
+            if isinstance(replies, list):
+                #if len(replies) > 0: breakpoint()
+                replies = {}
+
+            for reply in replies.get('data', []):
+                #breakpoint()
                 message = reply['text']
                 sent_label, sent_score = self.sent.get_sentiment(message)
                 comment = Comment(
@@ -109,7 +111,8 @@ class InstaExtractor:
 
         return comments
 
-    def get_post(self):
+    def get_post(self, n_posts=None, since=None, until=None, limit=100):
+        if n_posts is None: n_posts = np.inf
         medias = []
         basic_fields = 'caption,comments_count,id,like_count,media_product_type,media_type,shortcode,timestamp'
         insights = f'insights.metric({media_metrics})'
@@ -123,18 +126,23 @@ class InstaExtractor:
 
         params = {
             'fields': fields,
+            'since': since,
+            'until': until,
+            'limit': limit,
             'access_token': self.api.access_token
         }
 
         next_url = url
 
-        while next_url is not None:
+        posts_loaded = 0
+        while next_url is not None and posts_loaded < n_posts:
             res = requests.get(next_url, params=params)
             res = json.loads(res.text)
             api_posts = res['data']
             next_url = res['paging'].get('next', None)
             params = {}
 
+            posts_loaded += len(api_posts)
             for api_post in api_posts:
 
                 media_id = int(api_post['id'])
@@ -187,22 +195,43 @@ class InstaExtractor:
 
 @time_it
 @bullet_notify
-def main(page_name, is_competitor, store, reply_level, logger, title, **kwargs):
+def main(page_name, is_competitor, store, schema, nopage, noposts, n_posts, limit, since, until, **kwargs):
     extractor = InstaExtractor(page_name, is_competitor=int(is_competitor))
-    extractor = extractor.get_page().get_post()
+    extractor = extractor.get_page().get_post(n_posts=n_posts, since=since, until=until, limit=n_posts)
     if store:
-        logger.info('storing')
-        extractor.store()
-    return extractor.storage.history
+        logger.info('storing...')
+        store = Storage(schema=schema)
+        page = Page(**extractor.page_kwargs)
+        store.store(page)
+        #if not noposts: store.store(extractor.posts)
+        logger.info('stored')
+
+        return store.history
+
+    return {}
+
 
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--page_name', help='page name or id [default=levelupmalta]', type=str, default='levelupmalta')
     parser.add_argument('--is_competitor', help='is competitor', action='store_true') 
+    parser.add_argument('--schema', help='db schema name', type=str, default='competitors')
     parser.add_argument('--store', help='store data', action='store_true') 
-    parser.add_argument('--reply_level', help='reply levels to read [def=5]', type=int, default=5)
+    parser.add_argument('--nopage', help='do not store page data', action='store_true') 
+    parser.add_argument('--noposts', help='do not store posts data', action='store_true') 
+    parser.add_argument('--n_posts', help='number of posts to load, default=all', type=int)
+    parser.add_argument('--limit', help='number of posts per api call', type=int, default=100)
+    parser.add_argument('--since', help='YYYY-MM-DD. Also accepts "tdy" and "ydy"', type=str)
+    parser.add_argument('--until', help='YYYY-MM-DD', type=str)
     args = parser.parse_args()
+
+    if args.since == 'tdy':
+        since = str(datetime.now().date())
+    elif args.since == 'ydy':
+        since = str(datetime.now().date()-timedelta(days=1))
+    else:
+        since = args.since
 
     page_name = args.page_name
 
@@ -210,4 +239,17 @@ if __name__ == '__main__':
     notif_name = f'{page_name} INSTA API'
     logger = mylogger(fn_log)
 
-    main(page_name, args.is_competitor, args.store, args.reply_level, logger=logger, title=notif_name)
+    main(
+        page_name, 
+        args.is_competitor, 
+        args.store, 
+        args.schema, 
+        args.nopage, 
+        args.noposts, 
+        args.n_posts,
+        args.limit,
+        since, 
+        args.until, 
+        logger=logger, 
+        title=notif_name
+    )
