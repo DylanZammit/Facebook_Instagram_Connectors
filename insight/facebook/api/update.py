@@ -30,8 +30,8 @@ class FacebookExtractor:
             self.sent.get_sentiment = dummy
 
     def get_page(self):
-        # +1 day for API for some reason
-        today = str(datetime.now().date() + timedelta(days=1))
+        # +2 day for API for some f***ing reason
+        today = str(datetime.now().date() + timedelta(days=2))
         params = {
             'period': 'day',
             'access_token': self.api.access_token,
@@ -167,7 +167,7 @@ class FacebookExtractor:
             res = requests.get(next_url, params=params)
             res = json.loads(res.text)
             api_posts = res['data']
-            next_url = res['paging'].get('next', None)
+            next_url = res.get('paging', {}).get('next', None)
             params = {}
 
             posts_read += len(api_posts)
@@ -283,9 +283,9 @@ if __name__ == '__main__':
 
     if args.since == 'tdy':
         #since = str(datetime.now().date())
-        since = str(datetime.now().date()+timedelta(days=2))
+        since = str(datetime.now().date())
     elif args.since == 'ydy':
-        since = str(datetime.now().date()+timedelta(days=1))
+        since = str(datetime.now().date()-timedelta(days=1))
     else:
         since = args.since
 

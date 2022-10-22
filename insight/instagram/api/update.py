@@ -139,7 +139,7 @@ class InstaExtractor:
             res = requests.get(next_url, params=params)
             res = json.loads(res.text)
             api_posts = res['data']
-            next_url = res['paging'].get('next', None)
+            next_url = res.get('paging', {}).get('next', None)
             params = {}
 
             posts_loaded += len(api_posts)
@@ -227,9 +227,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.since == 'tdy':
-        since = str(datetime.now().date()+timedelta(days=2))
+        since = str(datetime.now().date())
     elif args.since == 'ydy':
-        since = str(datetime.now().date()+timedelta(days=1))
+        since = str(datetime.now().date()-timedelta(days=1))
     else:
         since = args.since
 
