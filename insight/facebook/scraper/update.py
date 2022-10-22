@@ -160,7 +160,7 @@ class FacebookScraper:
 
 @time_it
 @bullet_notify
-def main(page_name, num_posts, posts_since, posts_lookback, store, logger, title):
+def main(page_name, num_posts, posts_since, posts_lookback, store, schema, logger, title):
     if posts_lookback:
         latest_date = datetime.now() - timedelta(hours=posts_lookback)
     elif posts_since:
@@ -173,10 +173,14 @@ def main(page_name, num_posts, posts_since, posts_lookback, store, logger, title
     page = extractor.scrape_page(page_name)
 
     posts = []
-    if num_posts:
+    if num_posts or latest_date:
         i = 0
         while len(posts) == 0:
-            logger.info(f'reading {num_posts} posts attempt #{i+1}')
+            if num_posts:
+                logger.info(f'reading {num_posts} posts attempt #{i+1}')
+            else:
+                logger.info(f'reading posts since {latest_date} attempt #{i+1}')
+
             if i > 0: 
                 rsleep(30, q=False)
                 extractor = FacebookScraper(cookies='cookies.txt')
@@ -194,7 +198,7 @@ def main(page_name, num_posts, posts_since, posts_lookback, store, logger, title
         logger.info(f'{len(posts)} posts loaded')
         
     if store:
-        store = Storage()
+        store = Storage(schema=schema)
         store.store(page)
         store.store(posts)
         return store.history
@@ -203,10 +207,11 @@ def main(page_name, num_posts, posts_since, posts_lookback, store, logger, title
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--page_name', help='page name or id [default=timesofmalta]', type=str, default='timesofmalta')
-    parser.add_argument('--n_posts', help='Number of posts to read [default=0]', type=int)
-    parser.add_argument('--posts_since', help='datetime to read posts since: "%%Y-%%m-%%d %%H:%%M:%%S', type=str)
+    parser.add_argument('--n_posts', help='Number of posts to read [default=inf]', type=int)
+    parser.add_argument('--since', help='datetime to read posts since: "%%Y-%%m-%%d %%H:%%M:%%S', type=str, default='ydy')
     parser.add_argument('--posts_lookback', help='num of hours since now', type=int)
     parser.add_argument('--store', help='store data to postgres', action='store_true') 
+    parser.add_argument('--schema', help='db schema name', type=str, default='competitors')
     args = parser.parse_args()
     
     page_name = args.page_name
@@ -214,4 +219,11 @@ if __name__ == '__main__':
     fn_log = 'scrape_FB_{}'.format(page_name)
     logger = mylogger(fn_log)
 
-    main(page_name, args.n_posts, args.posts_since, args.posts_lookback, args.store, logger=logger, title=notif_name)
+    if args.since == 'tdy':
+        since = str(pd.Timestamp(datetime.now().date()))
+    elif args.since == 'ydy':
+        since = str(pd.Timestamp(datetime.now().date()-timedelta(days=1)))
+    else:
+        since = args.since
+
+    main(page_name, args.n_posts, since, args.posts_lookback, args.store, args.schema, logger=logger, title=notif_name)

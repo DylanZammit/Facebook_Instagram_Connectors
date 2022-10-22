@@ -11,7 +11,10 @@ username2id = {
     'timesofmalta': 160227208174,
     'maltatoday': 21535456940,
     'levelupmalta': 102912759036590,
-    'HamrunSpartansFCOfficial': 100048270135588 
+    'HamrunSpartansFCOfficial': 100048270135588,
+    'bernardgrechmt': 208847592959887,
+    'partitnazzjonalista': 159249234115841,
+    'robertabela.mt': 1343072129119715,
 }
 
 id2react = {

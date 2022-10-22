@@ -21,7 +21,6 @@ class FacebookExtractor:
         self.api = MyGraphAPI(page=username)
         self.username = username
         self.is_competitor = is_competitor
-        self.storage = Storage()
         self.react_types = ['LIKE', 'LOVE', 'WOW', 'HAHA', 'SAD', 'ANGRY', 'NONE']
         self.posts = []
         if do_sentiment:
@@ -30,10 +29,6 @@ class FacebookExtractor:
             self.sent = object()
             self.sent.get_sentiment = dummy
 
-    def store(self):
-        self.storage.store(self.page)
-        self.storage.store(self.posts)
-    
     def get_page(self):
         # +1 day for API for some reason
         today = str(datetime.now().date() + timedelta(days=1))
@@ -140,7 +135,8 @@ class FacebookExtractor:
         
         return comments
 
-    def get_post(self, reply_level=0):
+    def get_post(self, reply_level=0, n_posts=None, since=None, until=None, limit=100):
+        if n_posts is None: n_posts = np.inf
         url = f'https://graph.facebook.com/{self.page.page_id}/posts'
         react_field = ','.join(['reactions.type({}).limit(0).summary(1).as({})'.format(react, react) for react in self.react_types])
         insight_field = f'insights.metric({post_metrics})'
@@ -159,20 +155,26 @@ class FacebookExtractor:
 
         params = {
             'fields': fields,
+            'since': since,
+            'until': until,
+            'limit': limit,
             'access_token': self.api.access_token
         }
         next_url = url
 
-        while next_url is not None:
+        posts_read = 0
+        while next_url is not None and posts_read < n_posts:
             res = requests.get(next_url, params=params)
             res = json.loads(res.text)
             api_posts = res['data']
             next_url = res['paging'].get('next', None)
             params = {}
 
-            for api_post in api_posts:
+            posts_read += len(api_posts)
+
+            for i, api_post in enumerate(api_posts):
                 page_post_id = api_post['id']
-                logger.info(f'reading post {page_post_id}')
+                logger.info(f'reading post {i}) {page_post_id}')
                 post_id = int(page_post_id.split('_')[1])
                 
                 attachments = api_post['attachments']['data']
@@ -248,22 +250,39 @@ class FacebookExtractor:
 
 @time_it
 @bullet_notify
-def main(page_name, is_competitor, store, reply_level, logger, **kwargs):
+def main(page_name, is_competitor, store, reply_level, schema, nopage, noposts, n_posts, limit, since, until, **kwargs):
     extractor = FacebookExtractor(page_name, is_competitor=int(is_competitor))
-    extractor = extractor.get_page().get_post(reply_level=reply_level)
+    extractor = extractor.get_page().get_post(reply_level=reply_level, n_posts=n_posts, since=since, until=until, limit=n_posts)
     if store:
-        logger.info('storing')
-        extractor.store()
-    return extractor.storage.history
+        store = Storage(schema=schema)
+        if not nopage: store.store(extractor.page)
+        if not noposts: store.store(extractor.posts)
+
+    return store.history
+
 
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--page_name', help='page name or id [default=levelupmalta]', type=str, default='levelupmalta')
+    parser.add_argument('--schema', help='db schema name', type=str, default='competitors')
     parser.add_argument('--is_competitor', help='is_competitor', action='store_true')
     parser.add_argument('--store', help='store data', action='store_true') 
+    parser.add_argument('--nopage', help='do not store page data', action='store_true') 
+    parser.add_argument('--noposts', help='do not store posts data', action='store_true') 
     parser.add_argument('--reply_level', help='reply levels to read [def=5]', type=int, default=5)
+    parser.add_argument('--n_posts', help='number of posts to load, default=all', type=int)
+    parser.add_argument('--limit', help='number of posts per api call', type=int, default=100)
+    parser.add_argument('--since', help='YYYY-MM-DD. Also accepts "tdy" and "ydy"', type=str)
+    parser.add_argument('--until', help='YYYY-MM-DD', type=str)
     args = parser.parse_args()
+
+    if args.since == 'tdy':
+        since = str(datetime.now().date())
+    elif args.since == 'ydy':
+        since = str(datetime.now().date()-timedelta(days=1))
+    else:
+        since = args.since
 
     page_name = args.page_name
 
@@ -271,4 +290,18 @@ if __name__ == '__main__':
     notif_name = f'{page_name} FB API'
     logger = mylogger(fn_log)
 
-    main(page_name, args.is_competitor, args.store, args.reply_level, logger=logger, title=notif_name)
+    main(
+        page_name, 
+        args.is_competitor, 
+        args.store, 
+        args.reply_level, 
+        args.schema, 
+        args.nopage, 
+        args.noposts, 
+        args.n_posts,
+        args.limit,
+        since, 
+        args.until, 
+        logger=logger, 
+        title=notif_name
+    )

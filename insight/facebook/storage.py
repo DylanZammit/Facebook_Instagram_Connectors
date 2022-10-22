@@ -20,10 +20,16 @@ def save_history(f):
 
 class Storage:
 
-    def __init__(self):
-        self.conn = Connector(**POSTGRES)
-        self.scrape_date = pd.Timestamp(datetime.now().date())
+    def __init__(self, schema='competitors'):
+        credentials = POSTGRES.copy()
+        credentials['schema'] = schema
+        self.conn = Connector(**credentials)
+        if schema in ['budget']:
+            self.scrape_date = pd.Timestamp(datetime.now())
+        else:
+            self.scrape_date = pd.Timestamp(datetime.now().date())
         self.last_profile_call = pd.Timestamp('2000-01-01')
+        self.schema = schema
         self.history = {}
 
     def __str__(self):
@@ -48,7 +54,7 @@ class Storage:
 
     @save_history
     def _store_page_dim(self, pages):
-        df = self.conn.execute('SELECT page_id FROM dim_fb_page')
+        df = self.conn.execute(f'SELECT page_id FROM {self.schema}.dim_fb_page')
         rows = []
         for page in pages:
             page_id = int(page.page_id)
@@ -56,12 +62,12 @@ class Storage:
             if not exists:
                 rows.append((page.username, page.is_competitor, page_id, page.name))
 
-        self.conn.insert('dim_fb_page', rows)
+        self.conn.insert(f'{self.schema}.dim_fb_page', rows)
         return rows
 
     @save_history
     def _store_page_fact(self, pages):
-        df = self.conn.execute('SELECT page_id, pull_date FROM fact_fb_page')
+        df = self.conn.execute(f'SELECT page_id, pull_date FROM {self.schema}.fact_fb_page')
 
         rows = []
         for page in pages:
@@ -82,7 +88,7 @@ class Storage:
                 print(f'fact page {page_id}@{self.scrape_date} already exists')
 
         rows = list(set(rows))
-        self.conn.insert('fact_fb_page', rows)
+        self.conn.insert(f'{self.schema}.fact_fb_page', rows)
         return rows
 
     def _store_page(self, pages):
@@ -96,7 +102,7 @@ class Storage:
 
     @save_history
     def _store_posts_dim(self, posts):
-        df = self.conn.execute('SELECT post_id FROM dim_fb_post')
+        df = self.conn.execute(f'SELECT post_id FROM {self.schema}.dim_fb_post')
         rows = []
         comments = []
         for post in posts:
@@ -129,13 +135,13 @@ class Storage:
             self.store(comments)
 
         rows = list(set(rows))
-        self.conn.insert('dim_fb_post', rows)
+        self.conn.insert(f'{self.schema}.dim_fb_post', rows)
         return rows
 
     @save_history
     def _store_posts_fact(self, posts):
         
-        df = self.conn.execute('SELECT post_id, pull_date FROM fact_fb_post')
+        df = self.conn.execute(f'SELECT post_id, pull_date FROM {self.schema}.fact_fb_post')
         rows = []
         for post in posts:
             exists = len(df[(df.post_id==post.post_id)&(df.pull_date==self.scrape_date)])
@@ -166,7 +172,7 @@ class Storage:
                 ))
 
         rows = list(set(rows))
-        self.conn.insert('fact_fb_post', rows)
+        self.conn.insert(f'{self.schema}.fact_fb_post', rows)
         return rows
 
     def _store_post(self, posts):
@@ -181,7 +187,7 @@ class Storage:
     
     @save_history
     def _store_comment_dim(self, comments):
-        df = self.conn.execute('SELECT comment_id FROM dim_fb_comment')
+        df = self.conn.execute(f'SELECT comment_id FROM {self.schema}.dim_fb_comment')
         rows = []
         for comment in comments:
             exists = comment.comment_id in df.comment_id.values
@@ -198,12 +204,12 @@ class Storage:
                 ))
 
         rows = list(set(rows))
-        self.conn.insert('dim_fb_comment', rows)
+        self.conn.insert(f'{self.schema}.dim_fb_comment', rows)
         return rows
 
     @save_history
     def _store_comment_fact(self, comments):
-        df = self.conn.execute('SELECT comment_id, pull_date FROM fact_fb_comment')
+        df = self.conn.execute(f'SELECT comment_id, pull_date FROM {self.schema}.fact_fb_comment')
         rows = []
         for comment in comments:
             exists = len(df[(df.pull_date==self.scrape_date)&(df.comment_id==comment.comment_id)])
@@ -217,6 +223,6 @@ class Storage:
                 ))
 
         rows = list(set(rows))
-        self.conn.insert('fact_fb_comment', rows)
+        self.conn.insert(f'{self.schema}.fact_fb_comment', rows)
         return rows
 
