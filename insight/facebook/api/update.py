@@ -177,7 +177,7 @@ class FacebookExtractor:
                 logger.info(f'reading post {i}) {page_post_id}')
                 post_id = int(page_post_id.split('_')[1])
                 
-                attachments = api_post['attachments']['data']
+                attachments = api_post.get('attachments', {}).get('data', [])
                 media = next((att['media'] for att in attachments if 'media' in att), {})
                 has_image = 'image' in media
                 has_video = 'video' in media
@@ -258,7 +258,7 @@ def main(page_name, is_competitor, store, reply_level, schema, nopage, noposts, 
         if not nopage: store.store(extractor.page)
         if not noposts: store.store(extractor.posts)
 
-    return store.history
+        return store.history
 
 
 if __name__ == '__main__':
