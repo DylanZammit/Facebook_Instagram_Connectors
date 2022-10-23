@@ -34,10 +34,11 @@ class InstaExtractor:
             self.sent.get_sentiment = dummy
 
 
-    def get_page(self):
+    def get_page(self, live=False):
         # +1 day for API for some reason
-        today = str(datetime.now().date())
-        yesterday = str(datetime.now().date() - timedelta(days=1))
+        extra_day = timedelta(days=int(live))
+        today = str(datetime.now().date() + extra_day)
+        yesterday = str(datetime.now().date() - timedelta(days=1) + extra_day)
         params = {
             'access_token': self.api.access_token,
             'fields': f'followers_count,insights.metric({page_metrics}).period(day).since({yesterday}).until({today})'
@@ -195,9 +196,9 @@ class InstaExtractor:
 
 @time_it
 @bullet_notify
-def main(page_name, is_competitor, store, schema, nopage, noposts, n_posts, limit, since, until, **kwargs):
+def main(page_name, is_competitor, store, schema, nopage, noposts, n_posts, limit, since, until, live, **kwargs):
     extractor = InstaExtractor(page_name, is_competitor=int(is_competitor))
-    extractor = extractor.get_page().get_post(n_posts=n_posts, since=since, until=until, limit=n_posts)
+    extractor = extractor.get_page(live=live).get_post(n_posts=n_posts, since=since, until=until, limit=n_posts)
     if store:
         logger.info('storing...')
         store = Storage(schema=schema)
@@ -220,6 +221,7 @@ if __name__ == '__main__':
     parser.add_argument('--store', help='store data', action='store_true') 
     parser.add_argument('--nopage', help='do not store page data', action='store_true') 
     parser.add_argument('--noposts', help='do not store posts data', action='store_true') 
+    parser.add_argument('--live', help='do not store posts data', action='store_true') 
     parser.add_argument('--n_posts', help='number of posts to load, default=all', type=int)
     parser.add_argument('--limit', help='number of posts per api call', type=int, default=100)
     parser.add_argument('--since', help='YYYY-MM-DD. Also accepts "tdy" and "ydy"', type=str)
@@ -250,6 +252,7 @@ if __name__ == '__main__':
         args.limit,
         since, 
         args.until, 
+        args.live,
         logger=logger, 
         title=notif_name
     )
