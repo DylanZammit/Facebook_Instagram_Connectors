@@ -17,7 +17,7 @@ page_metrics = """follower_count,impressions,profile_views,reach"""
 
 class InstaExtractor:
 
-    def __init__(self, page, is_competitor, do_sentiment=True, do_translate=True):
+    def __init__(self, page, is_competitor, do_sentiment=False, do_translate=True):
         self.api = MyGraphAPI(page=page)
         self.username = page
         self.is_competitor = is_competitor
@@ -27,11 +27,7 @@ class InstaExtractor:
             'page_id': self.api.ig_user
         }
         self.storage = Storage()
-        if do_sentiment:
-            self.sent = Sentiment(do_translate)
-        else:
-            self.sent = object()
-            self.sent.get_sentiment = dummy
+        self.sent = Sentiment(do_sentiment, do_translate)
 
 
     def get_page(self, live=False):
@@ -86,13 +82,10 @@ class InstaExtractor:
             )
             comments.append(comment)
 
-            # TEST THIS
             if isinstance(replies, list):
-                #if len(replies) > 0: breakpoint()
                 replies = {}
 
             for reply in replies.get('data', []):
-                #breakpoint()
                 message = reply['text']
                 sent_label, sent_score = self.sent.get_sentiment(message)
                 comment = Comment(
@@ -196,15 +189,16 @@ class InstaExtractor:
 
 @time_it
 @bullet_notify
-def main(page_name, is_competitor, store, schema, nopage, noposts, n_posts, limit, since, until, live, **kwargs):
-    extractor = InstaExtractor(page_name, is_competitor=int(is_competitor))
-    extractor = extractor.get_page(live=live).get_post(n_posts=n_posts, since=since, until=until, limit=n_posts)
+def main(page_name, is_competitor, store, schema, nopage, noposts, do_sentiment, n_posts, limit, since, until, live, **kwargs):
+    extractor = InstaExtractor(page_name, is_competitor=int(is_competitor), do_sentiment=do_sentiment)
+    extractor = extractor.get_page(live=live)
+    extractor = extractor.get_post(n_posts=n_posts, since=since, until=until, limit=n_posts)
     if store:
         logger.info('storing...')
         store = Storage(schema=schema)
         page = Page(**extractor.page_kwargs)
         store.store(page)
-        #if not noposts: store.store(extractor.posts)
+        #store.store(extractor.posts)
         logger.info('stored')
 
         return store.history
@@ -217,6 +211,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--page_name', help='page name or id [default=levelupmalta]', type=str, default='levelupmalta')
     parser.add_argument('--is_competitor', help='is competitor', action='store_true') 
+    parser.add_argument('--do_sentiment', help='perform sentiment analysis on comments and posts', action='store_true')
     parser.add_argument('--schema', help='db schema name', type=str, default='competitors')
     parser.add_argument('--store', help='store data', action='store_true') 
     parser.add_argument('--nopage', help='do not store page data', action='store_true') 
@@ -237,7 +232,7 @@ if __name__ == '__main__':
 
     page_name = args.page_name
 
-    fn_log = 'update_IG_{}'.format(page_name)
+    fn_log = f'{page_name}/update_IG'
     notif_name = f'{page_name} INSTA API'
     logger = mylogger(fn_log)
 
@@ -248,6 +243,7 @@ if __name__ == '__main__':
         args.schema, 
         args.nopage, 
         args.noposts, 
+        args.do_sentiment,
         args.n_posts,
         args.limit,
         since, 

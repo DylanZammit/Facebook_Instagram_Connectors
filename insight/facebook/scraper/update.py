@@ -17,7 +17,7 @@ BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 
 class FacebookScraper:
 
-    def __init__(self, login=False, cookies=None, posts_per_page=50, do_sentiment=True, do_translate=True):
+    def __init__(self, login=False, cookies=None, posts_per_page=50, do_sentiment=False, do_translate=True):
         """
         doc here
         """
@@ -34,11 +34,7 @@ class FacebookScraper:
         set_user_agent(user_agent)
 
         self.posts_per_page = posts_per_page
-        if do_sentiment:
-            self.sent = Sentiment(do_translate)
-        else:
-            self.sent = object()
-            self.sent.get_sentiment = dummy
+        self.sent = Sentiment(do_sentiment, do_translate)
 
     def scrape_posts(self, username, num_posts=None, latest_date=None):
         if latest_date is None: latest_date = pd.Timestamp('2000-01-01')
@@ -160,7 +156,7 @@ class FacebookScraper:
 
 @time_it
 @bullet_notify
-def main(page_name, num_posts, posts_since, posts_lookback, store, schema, logger, title):
+def main(page_name, num_posts, posts_since, posts_lookback, do_sentiment, store, schema, logger, title):
     if posts_lookback:
         latest_date = datetime.now() - timedelta(hours=posts_lookback)
     elif posts_since:
@@ -168,7 +164,7 @@ def main(page_name, num_posts, posts_since, posts_lookback, store, schema, logge
     else:
         latest_date = None
 
-    extractor = FacebookScraper(cookies='cookies.txt')
+    extractor = FacebookScraper(cookies='cookies.txt', do_sentiment=do_sentiment)
 
     page = extractor.scrape_page(page_name)
 
@@ -183,7 +179,7 @@ def main(page_name, num_posts, posts_since, posts_lookback, store, schema, logge
 
             if i > 0: 
                 rsleep(30, q=False)
-                extractor = FacebookScraper(cookies='cookies.txt')
+                extractor = FacebookScraper(cookies='cookies.txt', do_sentiment=False)
 
             posts = extractor.scrape_posts(
                 username=page_name,
@@ -192,6 +188,7 @@ def main(page_name, num_posts, posts_since, posts_lookback, store, schema, logge
             )
             i += 1
 
+            # should not be hit if there are actually no posts to scrape
             if len(posts) == 0 and i == 5:
                 logger.critical('Failed to read posts after 5 attempts')
                 break
@@ -210,13 +207,14 @@ if __name__ == '__main__':
     parser.add_argument('--n_posts', help='Number of posts to read [default=inf]', type=int)
     parser.add_argument('--since', help='datetime to read posts since: "%%Y-%%m-%%d %%H:%%M:%%S', type=str, default='ydy')
     parser.add_argument('--posts_lookback', help='num of hours since now', type=int)
+    parser.add_argument('--do_sentiment', help='perform sentiment analysis on comments and posts', action='store_true')
     parser.add_argument('--store', help='store data to postgres', action='store_true') 
     parser.add_argument('--schema', help='db schema name', type=str, default='competitors')
     args = parser.parse_args()
     
     page_name = args.page_name
     notif_name = f'{page_name} FB Scrape'
-    fn_log = 'scrape_FB_{}'.format(page_name)
+    fn_log = f'{page_name}/scrape_FB'
     logger = mylogger(fn_log)
 
     if args.since == 'tdy':
@@ -226,4 +224,14 @@ if __name__ == '__main__':
     else:
         since = args.since
 
-    main(page_name, args.n_posts, since, args.posts_lookback, args.store, args.schema, logger=logger, title=notif_name)
+    main(
+        page_name, 
+        args.n_posts, 
+        since, 
+        args.posts_lookback, 
+        args.do_sentiment,
+        args.store, 
+        args.schema, 
+        logger=logger, 
+        title=notif_name
+    )

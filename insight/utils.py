@@ -5,6 +5,7 @@ import functools
 from traceback import format_exc
 from logger import pb
 from transformers import pipeline                  
+#from translate import Translator
 from googletrans import Translator
 
 username2id = {
@@ -32,20 +33,27 @@ MEDIA_TYPE_MAP = {'CAROUSEL_ALBUM': 8, 'IMAGE': 1, 'VIDEO': 2}
 MEDIA_PRODUCT_TYPE_MAP = {'FEED': 1, 'IGTV': 2, 'REELS': 3, 'CLIPS': 3} # scraper and api might return different keys
 MEDIA_CONTENT = {'PHOTO': 1, 'VIDEO': 2, 'IGTV': 3, 'REEL': 4, 'ALBUM': 5}
 
-class Sentiment():
+class Sentiment:
 
-    def __init__(self, do_translate=True):
-        self.sent_pl = pipeline(
-                model='cardiffnlp/twitter-roberta-base-sentiment-latest',
-                max_length=512,
-                truncation=True
-            )
-        self.translate = Translator().translate if do_translate else dummy(1)
+    def __init__(self, do_sentiment=False, do_translate=True):
+        self.do_sentiment = do_sentiment
+        self.do_translate = do_translate
+
+        if do_sentiment:
+            self.sent_pl = pipeline(
+                    model='cardiffnlp/twitter-roberta-base-sentiment-latest',
+                    max_length=512,
+                    truncation=True
+                )
+            if do_translate:
+                self.translate = Translator().translate if do_translate else dummy(1)
+                #self.translate = pipeline(model='Helsinki-NLP/opus-mt-mt-en')
 
     def get_sentiment(self, msg):
-        if msg == '':
+        if msg == '' or not self.do_sentiment:
             return None, None
-        msg = self.translate(msg).text
+
+        msg = self.translate(msg) if self.do_translate else msg
         sentiment = self.sent_pl(msg)[0]
         sent_label = sentiment['label']
         if sent_label == 'Negative':

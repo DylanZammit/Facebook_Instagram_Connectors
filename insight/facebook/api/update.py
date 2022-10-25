@@ -17,21 +17,18 @@ post_metrics = """post_impressions,post_impressions_unique,post_impressions_paid
 
 class FacebookExtractor:
 
-    def __init__(self, username, is_competitor, do_sentiment=True, do_translate=True):
+    def __init__(self, username, is_competitor, do_sentiment=False, do_translate=True):
         self.api = MyGraphAPI(page=username)
         self.username = username
         self.is_competitor = is_competitor
         self.react_types = ['LIKE', 'LOVE', 'WOW', 'HAHA', 'SAD', 'ANGRY', 'NONE']
         self.posts = []
-        if do_sentiment:
-            self.sent = Sentiment(do_translate)
-        else:
-            self.sent = object()
-            self.sent.get_sentiment = dummy
 
-    def get_page(self):
-        # +2 day for API for some f***ing reason
-        today = str(datetime.now().date() + timedelta(days=2))
+        self.sent = Sentiment(do_sentiment, do_translate)
+
+    def get_page(self, live=False):
+        # +2 day for API live mode for some f***ing reason
+        today = str(datetime.now().date() + timedelta(days=1) + live*timedelta(days=1))
         params = {
             'period': 'day',
             'access_token': self.api.access_token,
@@ -151,6 +148,7 @@ class FacebookExtractor:
             comments_field = 'comments.fields(comment_count,created_time,like_count,message,parent{})'
             for i in range(reply_level+1):
                 comments_field = comments_field.format(',' + comments_field) if i < reply_level-1 else comments_field.format('')
+            comments_field += '.limit(500).order(reverse_chronological)'
             fields = ','.join([fields, comments_field])
 
         params = {
@@ -250,9 +248,10 @@ class FacebookExtractor:
 
 @time_it
 @bullet_notify
-def main(page_name, is_competitor, store, reply_level, schema, nopage, noposts, n_posts, limit, since, until, **kwargs):
-    extractor = FacebookExtractor(page_name, is_competitor=int(is_competitor))
-    extractor = extractor.get_page().get_post(reply_level=reply_level, n_posts=n_posts, since=since, until=until, limit=n_posts)
+def main(page_name, is_competitor, store, reply_level, do_sentiment, schema, nopage, noposts, n_posts, limit, since, until, live, **kwargs):
+    extractor = FacebookExtractor(page_name, is_competitor=int(is_competitor), do_sentiment=do_sentiment)
+    if not nopage: extractor = extractor.get_page(live)
+    if not noposts: extractor = extractor.get_post(reply_level=reply_level, n_posts=n_posts, since=since, until=until, limit=n_posts)
     if store:
         logger.info('storing...')
         store = Storage(schema=schema)
@@ -271,6 +270,8 @@ if __name__ == '__main__':
     parser.add_argument('--page_name', help='page name or id [default=levelupmalta]', type=str, default='levelupmalta')
     parser.add_argument('--schema', help='db schema name', type=str, default='competitors')
     parser.add_argument('--is_competitor', help='is_competitor', action='store_true')
+    parser.add_argument('--live', help='is this getting real time data', action='store_true')
+    parser.add_argument('--do_sentiment', help='perform sentiment analysis on comments and posts', action='store_true')
     parser.add_argument('--store', help='store data', action='store_true') 
     parser.add_argument('--nopage', help='do not store page data', action='store_true') 
     parser.add_argument('--noposts', help='do not store posts data', action='store_true') 
@@ -282,7 +283,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.since == 'tdy':
-        #since = str(datetime.now().date())
         since = str(datetime.now().date())
     elif args.since == 'ydy':
         since = str(datetime.now().date()-timedelta(days=1))
@@ -291,7 +291,7 @@ if __name__ == '__main__':
 
     page_name = args.page_name
 
-    fn_log = 'update_FB_{}'.format(page_name)
+    fn_log = f'{page_name}/update_FB'
     notif_name = f'{page_name} FB API'
     logger = mylogger(fn_log)
 
@@ -300,6 +300,7 @@ if __name__ == '__main__':
         args.is_competitor, 
         args.store, 
         args.reply_level, 
+        args.do_sentiment,
         args.schema, 
         args.nopage, 
         args.noposts, 
@@ -307,6 +308,7 @@ if __name__ == '__main__':
         args.limit,
         since, 
         args.until, 
+        args.live,
         logger=logger, 
         title=notif_name
     )

@@ -186,7 +186,6 @@ def main(page_name, num_media, proxy, login, new_user, no_page, store, posts_per
                 break
         logger.info(f'{len(medias)} medias loaded')
 
-
     client.save_session(os.path.join(BASE_PATH, 'user_settings.json'))
 
     if store:
@@ -213,7 +212,7 @@ if __name__ == '__main__':
 
     page_name = args.page_name
 
-    fn_log = 'scrape_IG_{}'.format(page_name)
+    fn_log = f'{page_name}/scrape_IG'
     notif_name = f'{page_name} INSTA Scrape'
     logger = mylogger(fn_log)
 

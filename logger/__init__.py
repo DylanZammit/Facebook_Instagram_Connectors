@@ -53,6 +53,13 @@ class BufferingSMTPHandler(logging.handlers.BufferingHandler):
 
 
 def mylogger(fn):
+    head, fn = os.path.split(fn)
+    log_dir = os.path.join(BASE_LOG, head)
+
+    try:
+        os.makedirs(log_dir)
+    except FileExistsError:
+        pass
 
     today = datetime.now().strftime('%Y_%m_%d')
     fn = fn[:-4] if fn.endswith('.log') else fn
@@ -61,7 +68,7 @@ def mylogger(fn):
     _log_format = f"%(asctime)s - [%(levelname)s] - %(name)s - (%(filename)s).%(funcName)s(%(lineno)d) - %(message)s"
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
-    file_handler = logging.FileHandler(os.path.join(BASE_LOG, fn))
+    file_handler = logging.FileHandler(os.path.join(log_dir, fn))
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(logging.Formatter(_log_format))
 
