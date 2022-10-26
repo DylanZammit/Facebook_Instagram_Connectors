@@ -1,5 +1,6 @@
 import numpy as np
 import regex as re
+import requests
 import time
 import functools
 from traceback import format_exc
@@ -7,6 +8,7 @@ from logger import pb
 from transformers import pipeline                  
 #from translate import Translator
 from googletrans import Translator
+from pushbullet.errors import PushError
 
 username2id = {
     'timesofmalta': 160227208174,
@@ -104,17 +106,34 @@ def bullet_notify(f):
         success_msg = f'Success: {title}'
         try:
             res = f(*args, **kwargs)
-        except:
+        except Exception as e:
             err = format_exc()
             if logger:
                 logger.critical(err)
-                pb.push_note(err_msg, err)
+                try:
+                    pb.push_note(err_msg, err)
+                except PushError as e:
+                    logger.warning('pushbullet failed')
+                    simplepush_key = '7kAdYC'
+                    url = f'https://api.simplepush.io/send/{simplepush_key}/{err_msg}/{err}'
+                    requests.get(url)
+                    
             return -1
         else:
             hist = '\n'.join([f'{k} rows stored = {v}' for k, v in res.items()])
             if logger:
                 logger.info(hist)
-            pb.push_note(success_msg, hist)
+
+            # dont send notif on success
+            if 0:
+                try:
+                    pb.push_note(success_msg, hist)
+                except PushError as e:
+                    logger.warning('pushbullet failed')
+                    simplepush_key = '7kAdYC'
+                    url = f'https://api.simplepush.io/send/{simplepush_key}/{success_msg}/{hist}'
+                    requests.get(url)
+                    
             return res
 
     return wrapper
