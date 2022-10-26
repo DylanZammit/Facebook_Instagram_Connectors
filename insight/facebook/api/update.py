@@ -44,11 +44,13 @@ class FacebookExtractor:
         for metric in metrics:
             assert len(metric['values'])==1
             kwargs[metric['name']] = metric['values'][0]['value']
+            for_date = str(pd.Timestamp(metric['values'][0]['end_time']).date()-timedelta(days=1))
 
         fields = 'id,fan_count,followers_count,name'
         res = self.api.get_object(self.username, fields=fields)
 
         self.page = Page(
+            for_date=for_date,
             username=self.username, 
             is_competitor=self.is_competitor,
             num_likes = res['fan_count'],

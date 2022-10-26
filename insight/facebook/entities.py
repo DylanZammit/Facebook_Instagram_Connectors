@@ -61,6 +61,7 @@ class Post:
 @validate_arguments
 @dataclass(frozen=True, order=False)
 class Page:
+    for_date: str
     is_competitor: int
     username: str
     page_id: int = None # should not be None in future

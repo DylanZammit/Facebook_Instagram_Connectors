@@ -128,6 +128,7 @@ class FacebookScraper:
         return page_posts
 
     def scrape_page(self, username):
+        today = str(datetime.now().date())
 
         page_details = get_page_info(username)
         num_likes = page_details.get('likes', None)
@@ -143,6 +144,7 @@ class FacebookScraper:
             logger.warning(f'Could not get page followers for {username}')
 
         page = Page(
+            for_date=today,
             num_likes=num_likes,
             is_competitor=1,
             num_followers=num_followers,

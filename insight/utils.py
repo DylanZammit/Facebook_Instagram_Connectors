@@ -10,6 +10,8 @@ from transformers import pipeline
 from googletrans import Translator
 from pushbullet.errors import PushError
 
+SIMPLEPUSH_KEY= '7kAdYC'
+
 username2id = {
     'timesofmalta': 160227208174,
     'maltatoday': 21535456940,
@@ -105,6 +107,7 @@ def bullet_notify(f):
         err_msg = f'Error: {title}'
         success_msg = f'Success: {title}'
         try:
+            1/0
             res = f(*args, **kwargs)
         except Exception as e:
             err = format_exc()
@@ -112,10 +115,9 @@ def bullet_notify(f):
                 logger.critical(err)
                 try:
                     pb.push_note(err_msg, err)
-                except PushError as e:
+                except Exception as push_error:
                     logger.warning('pushbullet failed')
-                    simplepush_key = '7kAdYC'
-                    url = f'https://api.simplepush.io/send/{simplepush_key}/{err_msg}/{err}'
+                    url = fr'https://api.simplepush.io/send/{SIMPLEPUSH_KEY}/{err_msg}/{str(e)}'
                     requests.get(url)
                     
             return -1
@@ -123,16 +125,6 @@ def bullet_notify(f):
             hist = '\n'.join([f'{k} rows stored = {v}' for k, v in res.items()])
             if logger:
                 logger.info(hist)
-
-            # dont send notif on success
-            if 0:
-                try:
-                    pb.push_note(success_msg, hist)
-                except PushError as e:
-                    logger.warning('pushbullet failed')
-                    simplepush_key = '7kAdYC'
-                    url = f'https://api.simplepush.io/send/{simplepush_key}/{success_msg}/{hist}'
-                    requests.get(url)
                     
             return res
 
