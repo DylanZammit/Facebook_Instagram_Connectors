@@ -127,8 +127,12 @@ def time_it(f):
         start = time.perf_counter()
         result = f(*args, **kwargs)
         end = time.perf_counter()
+        disp = f"Function {f.__name__} ran in {end - start:0.2f} seconds"
         if logger is not None:
-            logger.info(f"Function {f.__name__} ran in {end - start:0.2f} seconds")
+            logger.info(disp)
+        else:
+            print(disp)
+
         return result
     return wrapper
 
