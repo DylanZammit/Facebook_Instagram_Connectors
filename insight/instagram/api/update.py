@@ -45,10 +45,10 @@ class InstaExtractor:
         res = requests.get(url, params=params)
         res = json.loads(res.text)
         metrics = res['insights']['data']
+        kwargs = {}
         for metric in metrics:
             assert len(metric['values'])==1
             metric_name = metric['name']
-            kwargs = {}
             if metric_name == 'follower_count':
                 metric_name = 'new_followers'
             kwargs[metric_name] = metric['values'][0]['value']
@@ -57,7 +57,6 @@ class InstaExtractor:
             for_date = pd.Timestamp(metric['values'][0]['end_time']).tz_convert(None).date()
             for_date = for_date.strftime('%Y-%m-%d 00:00:00')
             kwargs['for_date'] = for_date
-            #kwargs['for_date'] = str(pd.Timestamp(metric['values'][0]['end_time']).date()-timedelta(days=1)) # being overwritten
 
         kwargs['num_followers'] = res['followers_count']
         
