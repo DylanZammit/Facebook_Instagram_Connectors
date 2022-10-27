@@ -46,6 +46,7 @@ class Media:
 @validate_arguments
 @dataclass(frozen=True, order=False)
 class Page:
+    for_date: str
     page_id: int
     is_competitor: int = None
     username: str = None

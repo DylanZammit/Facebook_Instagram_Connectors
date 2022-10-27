@@ -1,6 +1,7 @@
 from instagrapi import Client
 from instagrapi.exceptions import ClientError
 from credentials import INSTA_USERNAME, INSTA_PASSWORD
+from datetime import datetime, timedelta
 from traceback import format_exc
 from insight.instagram.storage import Storage
 import os
@@ -55,6 +56,7 @@ class InstaScraper(Client):
             return 0
 
     def scrape_page(self, page_name):
+        today = str(datetime.now().date())
         page_info = self.user_info_by_username(page_name)
         #page_info = self.user_info_by_username_gql(page_name)
         
@@ -66,6 +68,7 @@ class InstaScraper(Client):
         self.page_id = page_id
 
         page = Page(
+            for_date=today,
             username=username, 
             page_id=page_id, 
             num_followers=num_followers, 

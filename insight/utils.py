@@ -9,10 +9,9 @@ from transformers import pipeline
 #from translate import Translator
 from googletrans import Translator
 from pushbullet.errors import PushError
+from credentials import SIMPLEPUSH_KEY, PUSH_NOTIFICATION_API_KEY
 
-SIMPLEPUSH_KEY= '7kAdYC'
 SIMPLEPUSH_URL=r'https://api.simplepush.io/send/{}/{}/{}'
-PUSH_NOTIFICATION_API_KEY = 'k-f1b0ca6388d7'
 PUSH_NOTIFICATION_API_URL = 'http://xdroid.net/api/message'
 
 username2id = {

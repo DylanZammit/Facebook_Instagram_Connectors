@@ -52,6 +52,7 @@ class InstaExtractor:
             if metric_name == 'follower_count':
                 metric_name = 'new_followers'
             kwargs[metric_name] = metric['values'][0]['value']
+            kwargs['for_date'] = str(pd.Timestamp(metric['values'][0]['end_time']).date()-timedelta(days=1)) # being overwritten
 
         kwargs['num_followers'] = res['followers_count']
         

@@ -24,10 +24,7 @@ class Storage:
         credentials = POSTGRES.copy()
         credentials['schema'] = schema
         self.conn = Connector(**credentials)
-        if schema in ['budget']:
-            self.scrape_date = pd.Timestamp(datetime.now())
-        else:
-            self.scrape_date = pd.Timestamp(datetime.now().date())
+        self.scrape_date = pd.Timestamp(datetime.now())
         self.last_profile_call = pd.Timestamp('2000-01-01')
         self.schema = schema
         self.history = {}
@@ -85,6 +82,7 @@ class Storage:
                     getattr(page, 'impressions', None),
                     getattr(page, 'reach', None),
                     getattr(page, 'profile_views', None),
+                    page.for_date,
                 ))
             else:
                 print(f'fact page {page_id}@{self.scrape_date} already exists')
