@@ -11,6 +11,9 @@ from googletrans import Translator
 from pushbullet.errors import PushError
 
 SIMPLEPUSH_KEY= '7kAdYC'
+SIMPLEPUSH_URL=r'https://api.simplepush.io/send/{}/{}/{}'
+PUSH_NOTIFICATION_API_KEY = 'k-f1b0ca6388d7'
+PUSH_NOTIFICATION_API_URL = 'http://xdroid.net/api/message'
 
 username2id = {
     'timesofmalta': 160227208174,
@@ -116,8 +119,17 @@ def bullet_notify(f):
                     pb.push_note(err_msg, err)
                 except Exception as push_error:
                     logger.warning('pushbullet failed')
-                    url = fr'https://api.simplepush.io/send/{SIMPLEPUSH_KEY}/{err_msg}/{str(e)}'
-                    requests.get(url)
+                    url = SIMPLEPUSH_URL.format(SIMPLEPUSH_KEY, err_msg, str(e))
+
+                    res = requests.get(url)
+
+                    if res.status_code != 200:
+                        logger.warning('simplepush failed')
+                        params = {'k': PUSH_NOTIFICATION_API_KEY, 't': err_msg, 'c': str(e)}
+                        res = requests.get(PUSH_NOTIFICATION_API_URL, params=params)
+
+                        if res.status_code != 200:
+                            logger.warning('push notification api failed')
                     
             return -1
         else:
