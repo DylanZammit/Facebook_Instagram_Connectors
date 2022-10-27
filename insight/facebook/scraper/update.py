@@ -128,7 +128,7 @@ class FacebookScraper:
         return page_posts
 
     def scrape_page(self, username):
-        today = str(datetime.now().date())
+        today = str(datetime.now())
 
         page_details = get_page_info(username)
         num_likes = page_details.get('likes', None)
@@ -216,7 +216,7 @@ if __name__ == '__main__':
     
     page_name = args.page_name
     notif_name = f'{page_name} FB Scrape'
-    fn_log = f'{page_name}/scrape_FB'
+    fn_log = f'{page_name}/facebook/scrape/update'
     logger = mylogger(fn_log)
 
     if args.since == 'tdy':

@@ -44,7 +44,8 @@ class FacebookExtractor:
         for metric in metrics:
             assert len(metric['values'])==1
             kwargs[metric['name']] = metric['values'][0]['value']
-            for_date = str(pd.Timestamp(metric['values'][0]['end_time']).date()-timedelta(days=1))
+            for_date = (pd.Timestamp(metric['values'][0]['end_time']).tz_convert(None)-timedelta(days=1)).date()
+            for_date = for_date.strftime('%Y-%m-%d 00:00:00')
 
         fields = 'id,fan_count,followers_count,name'
         res = self.api.get_object(self.username, fields=fields)
@@ -293,7 +294,7 @@ if __name__ == '__main__':
 
     page_name = args.page_name
 
-    fn_log = f'{page_name}/update_FB'
+    fn_log = f'{page_name}/facebook/api/update'
     notif_name = f'{page_name} FB API'
     logger = mylogger(fn_log)
 

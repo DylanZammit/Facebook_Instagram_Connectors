@@ -56,7 +56,7 @@ class InstaScraper(Client):
             return 0
 
     def scrape_page(self, page_name):
-        today = str(datetime.now().date())
+        today = str(datetime.now())
         page_info = self.user_info_by_username(page_name)
         #page_info = self.user_info_by_username_gql(page_name)
         
@@ -215,7 +215,7 @@ if __name__ == '__main__':
 
     page_name = args.page_name
 
-    fn_log = f'{page_name}/scrape_IG'
+    fn_log = f'{page_name}/instagram/scrape/update'
     notif_name = f'{page_name} INSTA Scrape'
     logger = mylogger(fn_log)
 
