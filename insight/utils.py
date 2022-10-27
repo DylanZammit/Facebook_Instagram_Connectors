@@ -107,7 +107,6 @@ def bullet_notify(f):
         err_msg = f'Error: {title}'
         success_msg = f'Success: {title}'
         try:
-            1/0
             res = f(*args, **kwargs)
         except Exception as e:
             err = format_exc()
