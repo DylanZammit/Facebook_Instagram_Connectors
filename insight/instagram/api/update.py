@@ -52,7 +52,10 @@ class InstaExtractor:
             if metric_name == 'follower_count':
                 metric_name = 'new_followers'
             kwargs[metric_name] = metric['values'][0]['value']
-            kwargs['for_date'] = str(pd.Timestamp(metric['values'][0]['end_time']).date()-timedelta(days=1)) # being overwritten
+            # being overwritten
+            # no need to do minus 1 for insta?? end_time 2022-10-26 07:00:00 gives data for 2022-10-26 I think
+            kwargs['for_date'] = str(pd.Timestamp(metric['values'][0]['end_time']).date()) 
+            #kwargs['for_date'] = str(pd.Timestamp(metric['values'][0]['end_time']).date()-timedelta(days=1)) # being overwritten
 
         kwargs['num_followers'] = res['followers_count']
         
