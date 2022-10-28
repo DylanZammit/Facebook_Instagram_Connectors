@@ -28,6 +28,7 @@ class FacebookExtractor:
 
     def get_page(self, live=False):
         # +2 day for API live mode for some f***ing reason
+        live = live*(datetime.now().hour>=7) # enforce UTC!!!
         today = str(datetime.now().date() + timedelta(days=1) + live*timedelta(days=1))
         params = {
             'period': 'day',

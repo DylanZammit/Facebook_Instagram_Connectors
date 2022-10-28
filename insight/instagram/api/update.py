@@ -32,9 +32,10 @@ class InstaExtractor:
 
     def get_page(self, live=False):
         # +1 day for API for some reason
-        extra_day = timedelta(days=int(live))
-        today = str(datetime.now().date() + extra_day)
-        yesterday = str(datetime.now().date() - timedelta(days=1) + extra_day)
+        extra_day = timedelta(days=1)
+        live = live*(datetime.now().hour>=7) # enforce UTC!!!
+        today = str(datetime.now().date() + live*extra_day)
+        yesterday = str(datetime.now().date() - timedelta(days=1) + live*extra_day)
         params = {
             'access_token': self.api.access_token,
             'fields': f'followers_count,insights.metric({page_metrics}).period(day).since({yesterday}).until({today})'
