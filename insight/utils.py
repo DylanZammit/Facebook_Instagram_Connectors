@@ -118,17 +118,15 @@ def bullet_notify(f):
                     pb.push_note(err_msg, err)
                 except Exception as push_error:
                     logger.warning('pushbullet failed')
-                    url = SIMPLEPUSH_URL.format(SIMPLEPUSH_KEY, err_msg, str(e))
-
-                    res = requests.get(url)
+                    params = {'k': PUSH_NOTIFICATION_API_KEY, 't': err_msg, 'c': str(e)}
+                    res = requests.get(PUSH_NOTIFICATION_API_URL, params=params)
 
                     if res.status_code != 200:
-                        logger.warning('simplepush failed')
-                        params = {'k': PUSH_NOTIFICATION_API_KEY, 't': err_msg, 'c': str(e)}
-                        res = requests.get(PUSH_NOTIFICATION_API_URL, params=params)
-
+                        logger.warning('push notification api failed')
+                        url = SIMPLEPUSH_URL.format(SIMPLEPUSH_KEY, err_msg, str(e))
+                        res = requests.get(url)
                         if res.status_code != 200:
-                            logger.warning('push notification api failed')
+                            logger.warning('simplepush failed')
                     
             return -1
         else:
