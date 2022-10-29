@@ -1,4 +1,5 @@
 from instagrapi import Client
+import pandas as pd
 from instagrapi.exceptions import ClientError
 from credentials import INSTA_USERNAME, INSTA_PASSWORD
 from datetime import datetime, timedelta
@@ -94,7 +95,7 @@ class InstaScraper(Client):
 
         logger.info('Loaded {} medias'.format(len(scraped_medias)))
         for media in scraped_medias:
-            logger.info(f'Reading {media.pk}')
+            logger.info(f'Reading {str(media.taken_at)} -> {media.pk}')
 
             media_type = media.media_type
             media_ptype = media.product_type
@@ -122,7 +123,7 @@ class InstaScraper(Client):
 
 @time_it
 @bullet_notify
-def main(page_name, num_media, proxy, login, new_user, no_page, store, posts_per_page, logger, title, **kwargs):
+def main(page_name, num_media, since, proxy, login, new_user, no_page, store, schema, posts_per_page, logger, title, **kwargs):
 
     try:
         client = InstaScraper(
@@ -167,8 +168,9 @@ def main(page_name, num_media, proxy, login, new_user, no_page, store, posts_per
 
 
     medias = []
-    if num_media:
-        i = 0
+    i = 0
+    noposts = False
+    if not noposts:
         while len(medias) == 0:
             logger.info(f'reading {num_media} medias attempt #{i+1}')
             if i > 0: 
@@ -193,7 +195,7 @@ def main(page_name, num_media, proxy, login, new_user, no_page, store, posts_per
 
     if store:
         logger.info('storing')
-        storage = Storage()
+        storage = Storage(schema=schema)
         storage.store(page)
         storage.store(medias)
 
@@ -206,12 +208,21 @@ if __name__ == '__main__':
     parser.add_argument('--login', action='store_true')
     parser.add_argument('--new_user', action='store_true')
     parser.add_argument('--page_name', help='[def=timesofmalta]', default='timesofmalta', type=str)
+    parser.add_argument('--since', help='datetime to read posts since: "%%Y-%%m-%%d %%H:%%M:%%S', type=str, default='ydy')
     parser.add_argument('--store', action='store_true')
     parser.add_argument('--no_page', action='store_true')
     parser.add_argument('--proxy', action='store_true')
-    parser.add_argument('--num_media', help='number of media posts to scrape [def=50]', type=int, default=30)
+    parser.add_argument('--num_media', help='number of media posts to scrape [def=50]', type=int)
     parser.add_argument('--posts_per_page', help='number of posts per page [def=10]', type=int, default=15)
+    parser.add_argument('--schema', help='db schema name', type=str, default='competitors')
     args = parser.parse_args()
+
+    if args.since == 'tdy':
+        since = str(pd.Timestamp(datetime.now().date()))
+    elif args.since == 'ydy':
+        since = str(pd.Timestamp(datetime.now().date()-timedelta(days=1)))
+    else:
+        since = args.since
 
     page_name = args.page_name
 
@@ -219,4 +230,4 @@ if __name__ == '__main__':
     notif_name = f'{page_name} INSTA Scrape'
     logger = mylogger(fn_log)
 
-    main(page_name, args.num_media, args.proxy, args.login, args.new_user, args.no_page, args.store, args.posts_per_page, logger=logger, title=notif_name)
+    main(page_name, args.num_media, since, args.proxy, args.login, args.new_user, args.no_page, args.store, args.schema, args.posts_per_page, logger=logger, title=notif_name)
