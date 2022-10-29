@@ -56,24 +56,26 @@ class Refresh:
         logger.info(f'Dataset status: {status}')
         return status
 
-    def wait_dataflow_refresh(self):
+    def wait_dataflow_refresh(self, raise_on_fail=False):
         while self.dataflow_status() == 'InProgress':
+            logger.info('Dataflow refresh in progress. Trying again in 5s...')
             time.sleep(5)
 
-        if self.dataflow_status() == 'Failed':
+        if raise_on_fail and self.dataflow_status() == 'Failed':
             raise ValueError(f'dataflow={self.dataflow} refresh failed')
+        else:
+            logger.info('Dataflow ready for refresh')
 
     def refresh(self, delay:int=120, until:str='2030-01-01', once:bool=False):
         until = pd.Timestamp(until)
         while datetime.now() < until:
             try:
-
                 self.wait_dataflow_refresh()
                 df_status = self.dataflow_status()
                 if df_status == 'Success':
                     self.refresh_dataflow()
-                self.wait_dataflow_refresh()
-
+                    time.sleep(2)
+                self.wait_dataflow_refresh(True)
 
                 dataset_refreshed = {dataset: 0 for dataset in self.datasets}
                 while not all(dataset_refreshed.values()):
