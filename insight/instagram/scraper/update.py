@@ -40,13 +40,31 @@ class InstaScraper(Client):
             logger.info('logging in...')
             self.login(username, password)
 
-            if proxy:
+        if proxy:
+            proxy_attempts=3
+            while proxy_attempts > 0:
                 try:
-                    proxy = FreeProxy(anonym=True, timeout=0.3).get()
+                    from Proxy_List_Scrapper import Scrapper, Proxy, ScrapperException
+                    logger.info('searching for proxy...')
+                    Category = ('PROXYNOVA')
+                    scrapper = Scrapper(category=Category, print_err_trace=False)
+                    data = scrapper.getProxies()
+                    proxies = data.proxies
+                    import random
+                    proxy = random.choice(proxies[:3])
+                    proxy = f'{proxy.ip}:{proxy.port}'
+                    #proxy = FreeProxy(timeout=0.5).get()
+
                     logger.info(f'Using proxy={proxy}')
                     self.set_proxy(proxy)
-                except:
+                except Exception as e:
                     logger.warning('Error when setting proxy: {}'.format(format_exc()))
+                    proxy_attempts -= 1
+                    if proxy_attempts == 0:
+                        raise Exception(e)
+                    time.sleep(1)
+                else:
+                    break
 
     def save_session(self, path):
         if self.logged_in:
@@ -154,7 +172,7 @@ def main(page_name, num_media, since, proxy, login, new_user, no_page, store, sc
         try:
             page = []
             from connector import PGConnector as Connector
-            query =f"SELECT page_id FROM insta_pages WHERE username='{page_name}'"
+            query =f"SELECT page_id FROM budget.dim_insta_page WHERE username='{page_name}'"
             conn = Connector(**POSTGRES)
             page_id = conn.execute(query).page_id[0]
         except Exception as e:

@@ -167,6 +167,7 @@ class FacebookExtractor:
         posts_read = 0
         while next_url is not None and posts_read < n_posts:
             res = requests.get(next_url, params=params)
+            logger.info(res.url)
             res = json.loads(res.text)
             api_posts = res['data']
             next_url = res.get('paging', {}).get('next', None)
@@ -174,9 +175,10 @@ class FacebookExtractor:
 
             posts_read += len(api_posts)
 
-            for i, api_post in enumerate(api_posts):
+            for i, api_post in enumerate(api_posts, start=1):
                 page_post_id = api_post['id']
-                logger.info(f'reading post {i}) {page_post_id}')
+                create_time = api_post['created_time']
+                logger.info(f'reading post {i}) {create_time} -> {page_post_id}')
                 post_id = int(page_post_id.split('_')[1])
                 
                 attachments = api_post.get('attachments', {}).get('data', [])
@@ -184,7 +186,6 @@ class FacebookExtractor:
                 has_image = 'image' in media
                 has_video = 'video' in media
                 num_shares = api_post.get('shares', {'count': 0})['count']
-                create_time = api_post['created_time']
                 num_reacts = api_post['TOT']['summary']['total_count']
                 num_like = api_post['LIKE']['summary']['total_count']
                 num_love = api_post['LOVE']['summary']['total_count']
@@ -208,8 +209,10 @@ class FacebookExtractor:
 
                 if reply_level == 0:
                     comments = self.get_obj_comments(page_post_id)
-                else:
+                elif reply_level > 0:
                     comments = self.format_comments(api_post['comments']['data'], post_id) if 'comments' in api_post else []
+                else:
+                    comments = []
 
                 num_comments = len(comments)
 
